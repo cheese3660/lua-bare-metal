@@ -1,0 +1,10 @@
+[submodule "libc"]
+	path = libc
+	url = git@github.com:embeddedartistry/libc.git
+[submodule "lua"]
+	path = lua
+	url = git@github.com:lua/lua.git
+	branch = v5.4.0
+[submodule "arith64"]
+	path = arith64
+	url = git@github.com:glitchub/arith64.git
