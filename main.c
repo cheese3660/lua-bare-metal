@@ -123,13 +123,17 @@ FILE* freopen(const char* __restrict, const char* __restrict, FILE* __restrict) 
     return NULL;
 }
 
+size_t ptr = 4; /* can't be 0 */
+
 void *malloc(size_t size) {
-    printf("malloc called!\n");
-    return NULL;
+    size_t addr = ptr;
+    printf("alloc size %d @ %08x\n", size, ptr);
+    ptr += size;
+    return (void *) addr;
 }
 
-void free(void*) {
-    printf("free called!\n");
+void free(void *ptr) {
+    printf("should free %08x\n", (size_t) ptr);
 }
 
 void kmain(void) {
