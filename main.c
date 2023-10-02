@@ -97,10 +97,15 @@ void kmain(void) {
         lua_pop(L, 1);  /* remove lib */
     }
 
-    module = mboot_ptr->mods_addr;
-    error = luaL_loadbuffer(L, module->start, module->end - module->start, module->string) || lua_pcall(L, 0, 0, 0);
-    if (error)
-        printf("%s\n", lua_tostring(L, -1));
+    if (mboot_ptr->mods_count == 0)
+        printf("nothing to run!\n");
+    else {
+        module = mboot_ptr->mods_addr;
+        printf("running module \"%s\"\n", module->string);
+        error = luaL_loadbuffer(L, module->start, module->end - module->start, module->string) || lua_pcall(L, 0, 0, 0);
+        if (error)
+            printf("%s\n", lua_tostring(L, -1));
+    }
 
     lua_close(L);
 

@@ -18,7 +18,7 @@ struct multiboot_header {
     uint32_t syms[4];
 
     uint32_t mmap_length;
-    struct mmap_entry *mmap_addr;
+    void *mmap_addr;
 
     uint32_t drives_length;
     void *drives_addr;
