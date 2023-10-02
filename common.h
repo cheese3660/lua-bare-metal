@@ -11,11 +11,6 @@
 #define LUAI_TRY(L,c,a) if (__builtin_setjmp((c)->b) == 0) { a }
 #define luai_jmpbuf jmp_buf
 
-/* points everything to the handful of required openlibm routines */
-#define fmod __ieee754_fmod
-#define pow __ieee754_pow
-#define sqrt __ieee754_sqrtf
-
 void write_string(const char *string, int len);
 
 #define lua_writestring(s,l) write_string(s, l)

@@ -13,12 +13,12 @@ struct multiboot_header {
     const char *cmdline;
 
     uint32_t mods_count;
-    void *mods_addr;
+    struct module_entry *mods_addr;
 
     uint32_t syms[4];
 
     uint32_t mmap_length;
-    void *mmap_addr;
+    struct mmap_entry *mmap_addr;
 
     uint32_t drives_length;
     void *drives_addr;
@@ -78,3 +78,10 @@ struct mmap_entry {
 };
 
 #define AVAILABLE_RAM 1
+
+struct module_entry {
+    void *start;
+    void *end;
+    const char *string;
+    uint32_t reserved;
+};

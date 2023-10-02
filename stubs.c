@@ -3,6 +3,8 @@
 #include <time.h>
 #include <stdio.h>
 
+/* stubs for otherwise unimplemented functions to either add the most basic required functionality or to fail gracefully */
+
 static inline uint8_t inb(uint16_t addr) {
     unsigned char result;
 
@@ -119,6 +121,15 @@ int fclose(FILE*) {
 FILE* freopen(const char* __restrict, const char* __restrict, FILE* __restrict) {
     errno = 1;
     return NULL;
+}
+
+char* fgets(char* __restrict, int, FILE* __restrict) {
+    errno = 1;
+    return NULL;
+}
+
+clock_t clock(void) {
+    return 0;
 }
 
 void __assert_fail(const char* assertion, const char* file, unsigned int line, const char *function) {
