@@ -8,3 +8,6 @@
 [submodule "arith64"]
 	path = arith64
 	url = git@github.com:glitchub/arith64.git
+[submodule "libmemory"]
+	path = libmemory
+	url = git@github.com:embeddedartistry/libmemory.git

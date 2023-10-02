@@ -16,8 +16,10 @@
 #define pow __ieee754_pow
 #define sqrt __ieee754_sqrtf
 
+void write_string(const char *string, int len);
+
 #define lua_writestring(s,l) write_string(s, l)
-#define lua_writeline() lua_writestring("\n", 1)
+#define lua_writeline() write_string("\n", 1)
 
 /* stubs to allow lauxlib.c to compile */
 #define BUFSIZ 1
