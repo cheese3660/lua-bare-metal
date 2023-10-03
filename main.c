@@ -6,14 +6,18 @@
 #include <lauxlib.h>
 #include <lualib.h>
 #include <malloc.h>
+#include <assert.h>
 #include "multiboot.h"
 #include "interrupts.h"
+#include "rtc.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;
 
 extern uint8_t kernel_start;
 extern uint8_t kernel_end;
+
+int luaopen_computer(lua_State *L);
 
 static const luaL_Reg loadedlibs[] = {
     {LUA_GNAME, luaopen_base},
@@ -23,6 +27,7 @@ static const luaL_Reg loadedlibs[] = {
     {LUA_MATHLIBNAME, luaopen_math},
     {LUA_UTF8LIBNAME, luaopen_utf8},
     {LUA_DBLIBNAME, luaopen_debug},
+    {"computer", luaopen_computer},
     {NULL, NULL}
 };
 
@@ -53,13 +58,17 @@ void kmain(void) {
     }
 
     if ((uint32_t) &kernel_start >= base_addr || base_addr < (uint32_t) &kernel_end) {
-        largest_size -= (uint32_t) &kernel_end - base_addr;
+        uint32_t reduction = (uint32_t) &kernel_end - base_addr;
+        assert(reduction < largest_size);
+        largest_size -= reduction;
         base_addr = (uint32_t) &kernel_end;
     }
 
     uint32_t header_end = (uint32_t) mboot_ptr + sizeof(struct multiboot_header);
     if ((uint32_t) mboot_ptr >= base_addr || base_addr < header_end) {
-        largest_size -= (uint32_t) header_end - base_addr;
+        uint32_t reduction = (uint32_t) header_end - base_addr;
+        assert(reduction < largest_size);
+        largest_size -= reduction;
         base_addr = header_end;
     }
 
@@ -68,10 +77,13 @@ void kmain(void) {
     struct module_entry *module = mboot_ptr->mods_addr;
 
     for (int i = 0; i < mboot_ptr->mods_count; i ++, module ++) {
-        printf("%08x - %08x: \"%s\"\n", module->start, module->end, module->string);
+        uint32_t size = (uint32_t) module->end - (uint32_t) module->start;
+        printf("%08x - %08x (%d.%02d KiB): \"%s\"\n", module->start, module->end, size / 1024, (size / 10) % 100, module->string);
 
         if ((uint32_t) module->start >= base_addr || base_addr < (uint32_t) module->end) {
-            largest_size -= (uint32_t) module->end - base_addr;
+            uint32_t reduction = (uint32_t) module->end - base_addr;
+            assert(reduction < largest_size);
+            largest_size -= reduction;
             base_addr = (uint32_t) module->end;
         }
     }
@@ -84,9 +96,10 @@ void kmain(void) {
     printf("testing interrupts\n");
     __asm__ __volatile__ ("int3");
 
+    rtc_init();
+    printf("time is %lld\n", epoch_time);
+
     printf("starting Lua\n");
-    const char *buff = "print(\"UwU OwO\")\n";
-    int error;
     lua_State *L = luaL_newstate();
 
     const luaL_Reg *lib;
@@ -102,12 +115,13 @@ void kmain(void) {
     else {
         module = mboot_ptr->mods_addr;
         printf("running module \"%s\"\n", module->string);
-        error = luaL_loadbuffer(L, module->start, module->end - module->start, module->string) || lua_pcall(L, 0, 0, 0);
+        int error = luaL_loadbuffer(L, module->start, module->end - module->start, module->string) || lua_pcall(L, 0, 0, 0);
         if (error)
             printf("%s\n", lua_tostring(L, -1));
     }
 
     lua_close(L);
 
-    while (1);
+    while (1)
+        __asm__ __volatile__ ("cli; hlt");
 }

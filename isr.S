@@ -50,6 +50,22 @@ isr_no_err_code 28
 isr_err_code 29
 isr_err_code 30
 isr_no_err_code 31
+isr_no_err_code 32
+isr_no_err_code 33
+isr_no_err_code 34
+isr_no_err_code 35
+isr_no_err_code 36
+isr_no_err_code 37
+isr_no_err_code 38
+isr_no_err_code 39
+isr_no_err_code 40
+isr_no_err_code 41
+isr_no_err_code 42
+isr_no_err_code 43
+isr_no_err_code 44
+isr_no_err_code 45
+isr_no_err_code 46
+isr_no_err_code 47
 
 .extern isr_handler
 

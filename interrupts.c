@@ -3,6 +3,8 @@
 #include <stdio.h>
 #include <stdint.h>
 #include "interrupts.h"
+#include "io.h"
+#include "rtc.h"
 
 /* http://www.jamesmolloy.co.uk/tutorial_html/4.-The%20GDT%20and%20IDT.html */
 struct idt_entry {
@@ -57,6 +59,22 @@ extern void isr28();
 extern void isr29();
 extern void isr30();
 extern void isr31();
+extern void isr32();
+extern void isr33();
+extern void isr34();
+extern void isr35();
+extern void isr36();
+extern void isr37();
+extern void isr38();
+extern void isr39();
+extern void isr40();
+extern void isr41();
+extern void isr42();
+extern void isr43();
+extern void isr44();
+extern void isr45();
+extern void isr46();
+extern void isr47();
 
 #define IDT_ENTRIES 256
 
@@ -71,6 +89,26 @@ static void make_idt_entry(struct idt_entry *entry, uint32_t base, uint16_t sel,
 } 
 
 void init_idt() {
+    // reset PICs
+    outb(0x20, 0x11);
+    outb(0xa0, 0x11);
+
+    // map primary PIC to interrupt 0x20-0x27
+    outb(0x21, 0x20);
+
+    // map secondary PIC to interrupt 0x28-0x2f
+    outb(0xa1, 0x28);
+
+    // set up cascading
+    outb(0x21, 0x04);
+    outb(0xa1, 0x02);
+
+    outb(0x21, 0x01);
+    outb(0xa1, 0x01);
+
+    outb(0x21, 0x0);
+    outb(0xa1, 0x0);
+
     struct idt_entry *idt = malloc(sizeof(struct idt_entry) * IDT_ENTRIES);
 
     if (idt == NULL) {
@@ -114,6 +152,22 @@ void init_idt() {
     make_idt_entry(&idt[29], (uint32_t) isr29, 0x08, 0x8e);
     make_idt_entry(&idt[30], (uint32_t) isr30, 0x08, 0x8e);
     make_idt_entry(&idt[31], (uint32_t) isr31, 0x08, 0x8e);
+    make_idt_entry(&idt[32], (uint32_t) isr32, 0x08, 0x8e);
+    make_idt_entry(&idt[33], (uint32_t) isr33, 0x08, 0x8e);
+    make_idt_entry(&idt[34], (uint32_t) isr34, 0x08, 0x8e);
+    make_idt_entry(&idt[35], (uint32_t) isr35, 0x08, 0x8e);
+    make_idt_entry(&idt[36], (uint32_t) isr36, 0x08, 0x8e);
+    make_idt_entry(&idt[37], (uint32_t) isr37, 0x08, 0x8e);
+    make_idt_entry(&idt[38], (uint32_t) isr38, 0x08, 0x8e);
+    make_idt_entry(&idt[39], (uint32_t) isr39, 0x08, 0x8e);
+    make_idt_entry(&idt[40], (uint32_t) isr40, 0x08, 0x8e);
+    make_idt_entry(&idt[41], (uint32_t) isr41, 0x08, 0x8e);
+    make_idt_entry(&idt[42], (uint32_t) isr42, 0x08, 0x8e);
+    make_idt_entry(&idt[43], (uint32_t) isr43, 0x08, 0x8e);
+    make_idt_entry(&idt[44], (uint32_t) isr44, 0x08, 0x8e);
+    make_idt_entry(&idt[45], (uint32_t) isr45, 0x08, 0x8e);
+    make_idt_entry(&idt[46], (uint32_t) isr46, 0x08, 0x8e);
+    make_idt_entry(&idt[47], (uint32_t) isr47, 0x08, 0x8e);
 
     struct idt_ptr idt_ptr = {
         .limit = sizeof(struct idt_entry) * IDT_ENTRIES - 1,
@@ -175,12 +229,34 @@ void isr_handler(struct int_registers registers) {
         case 3:
             printf("caught breakpoint interrupt!\n");
             break;
+        case 32:
+        case 33:
+        case 34:
+        case 35:
+        case 36:
+        case 37:
+        case 38:
+        case 39:
+            outb(0x20, 0x20); // reset primary interrupt controller
+            break;
+        case 40:
+            timer_tick();
+        case 41:
+        case 42:
+        case 43:
+        case 44:
+        case 45:
+        case 46:
+        case 47:
+            outb(0xa0, 0x20); // reset secondary interrupt controller
+            outb(0x20, 0x20);
+            break;
         default:
             printf("fatal exception %d (%s) at %08x, error code %08x\n", registers.int_no, get_exception_name(registers.int_no), registers.eip, registers.err_code);
             printf("eax = %08x, ebx = %08x, ecx = %08x, edx = %08x\n", registers.eax, registers.ebx, registers.ecx, registers.edx);
             printf("esi = %08x, edi = %08x, ebp = %08x, esp = %08x\n", registers.esi, registers.edi, registers.ebp, registers.useresp);
-            printf("eip = %08x, efl = %08x\n", registers.eip, registers.eflags);
-            printf("cs = %04x, ds = %04x, ss = %04x\n", registers.cs, registers.ds, registers.ss);
+            printf("eip = %08x, eflags = %08x\n", registers.eip, registers.eflags);
+            printf("cs = %04x, ds = %04x, ss = %04x\n", registers.cs & 0xffff, registers.ds & 0xffff, registers.ss & 0xffff);
 
             while (1)
                 __asm__ __volatile__ ("cli; hlt");
