@@ -10,6 +10,7 @@
 #include "multiboot.h"
 #include "interrupts.h"
 #include "rtc.h"
+#include "componentlib.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;
@@ -28,8 +29,14 @@ static const luaL_Reg loadedlibs[] = {
     {LUA_UTF8LIBNAME, luaopen_utf8},
     {LUA_DBLIBNAME, luaopen_debug},
     {"computer", luaopen_computer},
+    {"component", luaopen_component},
     {NULL, NULL}
 };
+
+int eeprom_invoke(lua_State *L) {
+    lua_pushstring(L, "error(\"UwU OwO\")");
+    return 1;
+}
 
 void kmain(void) {
     printf("signature is %08x, flags are %08x\n", mboot_sig, mboot_ptr->flags);
@@ -98,6 +105,10 @@ void kmain(void) {
 
     rtc_init();
     printf("time is %lld\n", epoch_time);
+
+    struct component *eeprom = new_component("eeprom", "00000000-0000-0000-0000-000000000001");
+    add_method(eeprom, "get", eeprom_invoke, METHOD_DIRECT);
+    add_component(eeprom);
 
     printf("starting Lua\n");
     lua_State *L = luaL_newstate();

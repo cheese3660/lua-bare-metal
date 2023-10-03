@@ -9,7 +9,7 @@ LUA_OBJS = lua/lapi.o lua/lcode.o lua/lctype.o lua/ldebug.o lua/ldo.o lua/ldump.
 	lua/ltm.o lua/lundump.o lua/lvm.o lua/lzio.o lua/ltests.o lua/lauxlib.o lua/lbaselib.o lua/ldblib.o \
 	lua/lmathlib.o lua/ltablib.o lua/lstrlib.o lua/lutf8lib.o lua/lcorolib.o
 
-OBJECTS = init.o main.o stubs.o interrupts.o isr.o rtc.o computerlib.o $(LUA_OBJS) arith64/arith64.o
+OBJECTS = init.o main.o stubs.o interrupts.o isr.o rtc.o computerlib.o componentlib.o $(LUA_OBJS) arith64/arith64.o
 BINARY = kernel
 
 LIBC_A = libc/buildresults/src/libc.a
@@ -17,13 +17,11 @@ LIBMEMORY_A = libmemory/buildresults/src/libmemory_freelist.a
 LIBOPENLIBM_A = libc/openlibm/libopenlibm.a
 CROSS_INI = $(shell pwd)/cross.ini
 
-TO_LINK = $(OBJECTS) $(LIBC_A) $(LIBMEMORY_A) $(LIBOPENLIBM_A)
-
 .PHONY: all
 all: $(BINARY)
 
-$(BINARY): $(TO_LINK)
-	$(LD) $(LDFLAGS) $(TO_LINK) -o $(BINARY)
+$(BINARY): $(LIBC_A) $(LIBMEMORY_A) $(LIBOPENLIBM_A) $(OBJECTS)
+	$(LD) $(LDFLAGS) $(OBJECTS) $(LIBC_A) $(LIBMEMORY_A) $(LIBOPENLIBM_A) -o $(BINARY)
 
 %.o: %.S
 	$(AS) $(ASFLAGS) $< -o $@
