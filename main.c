@@ -101,6 +101,7 @@ void kmain(void) {
 
     printf("starting Lua\n");
     lua_State *L = luaL_newstate();
+    assert(L != NULL);
 
     const luaL_Reg *lib;
     /* "require" functions from 'loadedlibs' and set results to global table */
@@ -115,11 +116,33 @@ void kmain(void) {
     else {
         module = mboot_ptr->mods_addr;
         printf("running module \"%s\"\n", module->string);
-        int error = luaL_loadbuffer(L, module->start, module->end - module->start, module->string) || lua_pcall(L, 0, 0, 0);
-        if (error)
+
+        lua_State *main = lua_newthread(L);
+
+        if (luaL_loadbuffer(main, module->start, module->end - module->start, module->string))
             printf("%s\n", lua_tostring(L, -1));
+
+        while (1) {
+            int nresults;
+
+            switch (lua_resume(main, NULL, 0, &nresults)) {
+                case LUA_OK:
+                    /* temporary */
+                    printf("%s\n", lua_tostring(main, -1));
+                    break;
+                case LUA_YIELD:
+                    lua_pop(main, nresults);
+                    continue;
+                default:
+                    printf("%s\n", lua_tostring(main, -1));
+                    break;
+            }
+
+            break;
+        }
     }
 
+    printf("finished execution, halting\n");
     lua_close(L);
 
     while (1)

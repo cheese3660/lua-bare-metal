@@ -3,6 +3,7 @@
 #include "rtc.h"
 #include "io.h"
 
+static bool is_24h = false;
 static bool is_bcd = false;
 uint16_t jiffies_frac = 0;
 uint64_t epoch_time = 0;
@@ -12,7 +13,9 @@ void rtc_init(void) {
     outb(0x70, 0x0c);
     inb(0x71);
 
-    is_bcd = !(rtc_read(0x0b) >> 2);
+    uint8_t status_b = rtc_read(0x0b);
+    is_24h = !(status_b >> 1);
+    is_bcd = !(status_b >> 2);
 
     get_time();
 
@@ -96,12 +99,16 @@ static uint64_t get_time_unchecked(void) {
         .tm_year = convert_bcd(rtc_read(0x09)) + 100,
     };
 
-    uint8_t hours = rtc_read(0x04);
+    if (is_24h)
+        date.tm_hour = convert_bcd(rtc_read(0x04));
+    else {
+        uint8_t hours = rtc_read(0x04);
 
-    if (hours & 0x80) // PM
-        date.tm_hour = (convert_bcd(hours & ~0x80) % 12) + 12;
-    else // AM
-        date.tm_hour = convert_bcd(hours) % 12;
+        if (hours & 0x80) // PM
+            date.tm_hour = (convert_bcd(hours & ~0x80) % 12) + 12;
+        else // AM
+            date.tm_hour = convert_bcd(hours) % 12;
+    }
 
     return epoch_time = mktime(&date);
 }
