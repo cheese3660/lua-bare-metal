@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include "tar.h"
 
 struct tar_header {
@@ -44,9 +45,9 @@ static int oct2bin(unsigned char *str, int size) {
     return n;
 }
 
-int next_file(struct tar_iterator *iter, char *name, char **data, size_t *size) {
+bool next_file(struct tar_iterator *iter, char *name, char **data, size_t *size) {
     if (iter->start >= iter->end)
-        return 0;
+        return false;
 
     struct tar_header *header = (struct tar_header *) iter->start;
     header->name[99] = 0;
@@ -54,7 +55,7 @@ int next_file(struct tar_iterator *iter, char *name, char **data, size_t *size) 
     header->filename_prefix[154] = 0;
 
     if (strcmp(header->ustar_indicator, "ustar"))
-        return 0;
+        return false;
 
     sprintf(name, "%s%s", header->name, header->filename_prefix);
     *data = iter->start + 512;
@@ -62,15 +63,29 @@ int next_file(struct tar_iterator *iter, char *name, char **data, size_t *size) 
 
     iter->start += 512 + ((*size + 511) & ~511);
 
-    return 1;
+    return true;
 }
 
-int find_file(struct tar_iterator *iter, char *to_find, char **data, size_t *size) {
+bool find_file(struct tar_iterator *iter, char *to_find, char **data, size_t *size) {
     const char name[256];
 
-    while (next_file(iter, &name, data, size))
-        if (!strcmp(name, to_find))
-            return 1;
+    if (*(to_find ++) != '/')
+        return false;
 
-    return 0;
+    while (1) {
+        const char *name_ptr = &name;
+        if (!next_file(iter, name_ptr, data, size))
+            break;
+
+        if (*name_ptr == '/')
+            name_ptr++;
+
+        if (strstr(name_ptr, "./") == name_ptr)
+            name_ptr += 2;
+
+        if (!strcmp(name, to_find))
+            return true;
+    }
+
+    return false;
 }

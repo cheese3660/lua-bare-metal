@@ -1,5 +1,7 @@
 #pragma once
 
+#include <lua.h>
+
 struct component {
     // the name of this component
     const char *name;

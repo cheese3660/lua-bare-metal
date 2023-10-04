@@ -1,10 +1,14 @@
 #include <string.h>
 #include "vgatext.h"
 #include "gpu.h"
+#include "io.h"
 
 uint16_t *video_memory = (uint16_t *) 0xb8000;
 
 static void set(int x, int y, uint32_t c, int foreground, int background) {
+    if (c > 256)
+        c = '?';
+
     video_memory[y * 80 + x] = ((background & 0xf) << 12) | ((foreground & 0xf) << 8) | (c & 0xff);
 }
 
@@ -35,6 +39,10 @@ static struct gpu vgatext_gpu = {
     .copy = copy
 };
 
-void vgatext_init(void) {
+struct gpu *vgatext_init(void) {
+    // disable cursor
+    outb(0x3d4, 0x0a);
+	outb(0x3d5, 0x20);
     gpu_init(&vgatext_gpu);
+    return &vgatext_gpu;
 }

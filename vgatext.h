@@ -1,3 +1,3 @@
 #pragma once
 
-void vgatext_init(void);
+struct gpu *vgatext_init(void);

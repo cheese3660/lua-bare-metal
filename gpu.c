@@ -482,3 +482,39 @@ void gpu_init(struct gpu *gpu) {
 
     fill(gpu, 0, 0, gpu->width, gpu->height, ' ');
 }
+
+void gpu_error_message(struct gpu *gpu, const char *message) {
+    printf("%s\n", message);
+
+    if (gpu->palette_size == 0) {
+        gpu->foreground = 0xffffff;
+        gpu->background = 0x0000ff;
+    } else {
+        gpu->foreground = find_closest_color(gpu, 0xffffff);
+        gpu->background = find_closest_color(gpu, 0x0000ff);
+    }
+
+    fill(gpu, 0, 0, gpu->width, gpu->height, ' ');
+
+    int x = 0;
+    int y = 0;
+
+    while (*message) {
+        char c = *message++;
+        if (c >= ' ') {
+            gpu->set(x, y, c, gpu->foreground, gpu->background);
+            struct stored_character *stored = &gpu->stored[y * gpu->width + x];
+            stored->character = c;
+            stored->foreground = gpu->foreground;
+            stored->background = gpu->background;
+        }
+
+        x++;
+        if (x >= gpu->width || c == '\n') {
+            x = 0;
+            y++;
+            if (y >= gpu->height)
+                break;
+        }
+    }
+}

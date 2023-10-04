@@ -31,3 +31,4 @@ struct gpu {
 };
 
 void gpu_init(struct gpu *gpu);
+void gpu_error_message(struct gpu *gpu, const char *message);

@@ -14,6 +14,8 @@
 #include "componentlib.h"
 #include "uuid.h"
 #include "vgatext.h"
+#include "gpu.h"
+#include "initrd.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;
@@ -44,35 +46,30 @@ static int eeprom_get(lua_State *L, const char *address, void *data) {
     return 2;
 }
 
-void run_string(lua_State *L, const char *name, const char *data, size_t size) {
+static char *message_traceback(lua_State *L) {
+    luaL_traceback(L, L, lua_tostring(L, -1), 1);
+    const char *message = lua_tostring(L, -1);
+    lua_pop(L, 2);
+    return message;
+}
+
+static const char *run_string(lua_State *L, const char *name, const char *data, size_t size) {
     if (size == 0)
         return;
 
-    if (luaL_loadbuffer(L, data, size, name)) {
-        printf("%s\n", lua_tostring(L, -1));
-        lua_pop(L, 1);
-        return;
-    }
+    const char *message;
+
+    if (luaL_loadbuffer(L, data, size, name))
+        return message_traceback(L);
 
     while (1) {
         int nresults;
 
-        switch (lua_resume(L, NULL, 0, &nresults)) {
-            case LUA_OK:
-                /* temporary */
-                printf("%s\n", lua_tostring(L, -1));
-                lua_pop(L, 1);
-                break;
-            case LUA_YIELD:
-                lua_pop(L, nresults);
-                continue;
-            default:
-                printf("%s\n", lua_tostring(L, -1));
-                lua_pop(L, 1);
-                break;
-        }
-
-        break;
+        if (lua_resume(L, NULL, 0, &nresults) == LUA_YIELD) {
+            lua_pop(L, nresults);
+            continue;
+        } else
+            return message_traceback(L);
     }
 }
 
@@ -149,10 +146,13 @@ void kmain(void) {
     printf("initializing components\n");
 
     struct component *eeprom = new_component("eeprom", new_uuid(), NULL);
-    add_method(eeprom, "get", eeprom_get, METHOD_DIRECT);
+    add_method(eeprom, "get", eeprom_get, METHOD_DIRECT | METHOD_GETTER);
     add_component(eeprom);
 
-    vgatext_init();
+    struct gpu *gpu = vgatext_init();
+
+    if (mboot_ptr->mods_count != 0)
+        initrd_init(mboot_ptr->mods_addr->string, mboot_ptr->mods_addr->start, mboot_ptr->mods_addr->end);
 
     printf("starting Lua\n");
     lua_State *L = luaL_newstate();
@@ -174,13 +174,16 @@ void kmain(void) {
         size_t size;
 
         iter = open_tar(module->start, module->end);
-        if (find_file(iter, "bios.lua", &data, &size))
+        if (find_file(iter, "/bios.lua", &data, &size))
             eeprom_data = data;
 
         iter = open_tar(module->start, module->end);
-        if (find_file(iter, "machine.lua", &data, &size))
-            run_string(L, "=machine.lua", data, size);
-    }
+        if (find_file(iter, "/machine.lua", &data, &size))
+            gpu_error_message(gpu, run_string(L, "=machine.lua", data, size));
+        else
+            gpu_error_message(gpu, "couldn't find machine.lua");
+    } else
+        gpu_error_message(gpu, "missing initrd");
 
     printf("finished execution, halting\n");
     lua_close(L);
