@@ -27,36 +27,26 @@ struct open_file {
     struct open_file *next;
 };
 
-static int initrd_space_used(lua_State *L, const char *address, struct initrd_data *data) {
-    lua_pushboolean(L, true);
+static int initrd_space_used(lua_State *L, struct initrd_data *data, int arguments_start) {
     lua_pushnumber(L, data->end - data->start);
-    return 2;
+    return 1;
 }
 
-static int initrd_open(lua_State *L, const char *address, struct initrd_data *data) {
-    const char *path = luaL_checkstring(L, 3);
-    const char *mode = lua_isstring(L, 4) ? lua_tostring(L, 4) : "r";
+static int initrd_open(lua_State *L, struct initrd_data *data, int arguments_start) {
+    const char *path = luaL_checkstring(L, arguments_start);
+    const char *mode = lua_isstring(L, arguments_start + 1) ? lua_tostring(L, arguments_start + 1) : "r";
 
-    if (!*path || !*mode) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "bad argument");
-        return 2;
-    }
+    if (!*path || !*mode)
+        return luaL_error(L, "bad argument");
 
-    if (strstr(mode, "r") == NULL || strstr(mode, "w") != NULL) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "read-only filesystem");
-        return 2;
-    }
+    if (strstr(mode, "r") == NULL || strstr(mode, "w") != NULL)
+        return luaL_error(L, "read-only filesystem");
 
     struct tar_iterator *iter = open_tar(data->start, data->end);
     const char *file_data;
     size_t file_size;
-    if (!find_file(iter, path, &file_data, &file_size)){
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "file not found");
-        return 2;
-    }
+    if (!find_file(iter, path, &file_data, &file_size))
+        return luaL_error(L, "file not found");
 
     struct open_file *open_file = malloc(sizeof(struct open_file));
     assert(open_file != NULL);
@@ -74,15 +64,12 @@ static int initrd_open(lua_State *L, const char *address, struct initrd_data *da
 
     data->open_files = open_file;
 
-    lua_pushboolean(L, true);
     lua_pushnumber(L, open_file->handle_num);
-    return 2;
+    return 1;
 }
 
-static int initrd_readonly(lua_State *L, const char *address, struct initrd_data *data) {
-    lua_pushboolean(L, false);
-    lua_pushliteral(L, "read-only filesystem");
-    return 2;
+static int initrd_readonly(lua_State *L, struct initrd_data *data, int arguments_start) {
+    return luaL_error(L, "read-only filesystem");
 }
 
 static struct open_file *find_open_file(struct initrd_data *data, int handle) {
@@ -93,18 +80,15 @@ static struct open_file *find_open_file(struct initrd_data *data, int handle) {
     return NULL;
 }
 
-static int initrd_seek(lua_State *L, const char *address, struct initrd_data *data) {
-    int handle = luaL_checknumber(L, 3);
-    const char *whence = luaL_checkstring(L, 4);
-    int offset = luaL_checknumber(L, 5);
+static int initrd_seek(lua_State *L, struct initrd_data *data, int arguments_start) {
+    int handle = luaL_checknumber(L, arguments_start);
+    const char *whence = luaL_checkstring(L, arguments_start + 1);
+    int offset = luaL_checknumber(L, arguments_start + 2);
 
     struct open_file *open_file = find_open_file(data, handle);
 
-    if (open_file == NULL) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "invalid handle");
-        return 2;
-    }
+    if (open_file == NULL)
+        return luaL_error(L, "invalid handle");
 
     if (!strcmp(whence, "cur")) {
         open_file->read_pos += offset;
@@ -114,66 +98,56 @@ static int initrd_seek(lua_State *L, const char *address, struct initrd_data *da
         open_file->read_pos = open_file->size + offset;
     }
 
-    lua_pushboolean(L, true);
     lua_pushnumber(L, open_file->read_pos);
-    return 2;
+    return 1;
 }
 
-static int initrd_exists(lua_State *L, const char *address, struct initrd_data *data) {
-    const char *path = luaL_checkstring(L, 3);
+static int initrd_exists(lua_State *L, struct initrd_data *data, int arguments_start) {
+    const char *path = luaL_checkstring(L, arguments_start);
 
     if (!*path) {
-        lua_pushboolean(L, true);
         lua_pushboolean(L, false);
-        return 2;
+        return 1;
     }
 
     struct tar_iterator *iter = open_tar(data->start, data->end);
     const char *file_data;
     size_t file_size;
 
-    lua_pushboolean(L, true);
     lua_pushboolean(L, find_file(iter, path, &file_data, &file_size));
-    return 2;
+    return 1;
 }
 
-static int initrd_is_read_only(lua_State *L, const char *address, void *data) {
+static int initrd_is_read_only(lua_State *L, void *data, int arguments_start) {
     lua_pushboolean(L, true);
-    lua_pushboolean(L, true);
-    return 2;
+    return 1;
 }
 
-static int initrd_get_label(lua_State *L, const char *address, struct initrd_data *data) {
-    lua_pushboolean(L, true);
+static int initrd_get_label(lua_State *L, struct initrd_data *data, int arguments_start) {
     lua_pushstring(L, data->name);
-    return 2;
+    return 1;
 }
 
-static int initrd_size(lua_State *L, const char *address, struct initrd_data *data) {
-    const char *path = luaL_checkstring(L, 3);
+static int initrd_size(lua_State *L, struct initrd_data *data, int arguments_start) {
+    const char *path = luaL_checkstring(L, arguments_start);
 
     if (!*path) {
-        lua_pushboolean(L, true);
         lua_pushboolean(L, false);
-        return 2;
+        return 1;
     }
 
     struct tar_iterator *iter = open_tar(data->start, data->end);
     const char *file_data;
     size_t file_size;
-    if (!find_file(iter, path, &file_data, &file_size)){
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "file not found");
-        return 2;
-    }
+    if (!find_file(iter, path, &file_data, &file_size))
+        return luaL_error(L, "file not found");
 
-    lua_pushboolean(L, true);
     lua_pushnumber(L, file_size);
-    return 2;
+    return 1;
 }
 
-static int initrd_close(lua_State *L, const char *address, struct initrd_data *data) {
-    int handle = luaL_checknumber(L, 3);
+static int initrd_close(lua_State *L, struct initrd_data *data, int arguments_start) {
+    int handle = luaL_checknumber(L, arguments_start);
 
     struct open_file *open_file = data->open_files, *last = NULL;
 
@@ -186,34 +160,27 @@ static int initrd_close(lua_State *L, const char *address, struct initrd_data *d
 
             free(open_file);
 
-            lua_pushboolean(L, true);
-            return 1;
+            return 0;
         }
 
-    lua_pushboolean(L, false);
-    lua_pushliteral(L, "invalid handle");
-    return 2;
+    return luaL_error(L, "invalid handle");
 }
 
-static int initrd_read(lua_State *L, const char *address, struct initrd_data *data) {
-    int handle = luaL_checknumber(L, 3);
+static int initrd_read(lua_State *L, struct initrd_data *data, int arguments_start) {
+    int handle = luaL_checknumber(L, arguments_start);
 
     // lua is on crack
-    uint64_t count2 = luaL_checknumber(L, 4);
+    uint64_t count2 = luaL_checknumber(L, arguments_start);
     size_t count = count2 >= UINTPTR_MAX ? UINTPTR_MAX : count;
 
     struct open_file *open_file = find_open_file(data, handle);
 
-    if (open_file == NULL) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "invalid handle");
-        return 2;
-    }
+    if (open_file == NULL)
+        return luaL_error(L, "invalid handle");
 
     if (open_file->read_pos >= open_file->size) {
-        lua_pushboolean(L, true);
         lua_pushnil(L);
-        return 2;
+        return 1;
     }
 
     if (count > open_file->size)
@@ -223,17 +190,15 @@ static int initrd_read(lua_State *L, const char *address, struct initrd_data *da
         count -= open_file->size - (open_file->read_pos + count);
     
     if (count == 0) {
-        lua_pushboolean(L, true);
         lua_pushnil(L);
-        return 2;
+        return 1;
     }
 
-    lua_pushboolean(L, true);
     lua_pushlstring(L, open_file->start + open_file->read_pos, count);
 
     open_file->read_pos += count;
 
-    return 2;
+    return 1;
 }
 
 void initrd_init(const char *name, const char *start, const char *end) {

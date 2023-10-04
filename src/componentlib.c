@@ -19,10 +19,12 @@ static int component_list(lua_State *L) {
     const char *filter = lua_tostring(L, 1);
     bool is_exact = lua_isboolean(L, 2) ? lua_toboolean(L, 2) : true;
 
+    lua_checkstack(L, 3);
+
     lua_newtable(L);
 
     for (struct component *component = first_component; component != NULL; component = component->next) {
-        if (*filter && is_exact ? strcmp(component->name, filter) : !strstr(component->name, filter))
+        if (*filter && (is_exact ? strcmp(component->name, filter) : !strstr(component->name, filter)))
             continue;
 
         lua_pushstring(L, component->address);
@@ -38,20 +40,16 @@ static int component_type(lua_State *L) {
 
     for (struct component *component = first_component; component != NULL; component = component->next)
         if (!strcmp(component->address, address)) {
-            lua_pushboolean(L, true);
             lua_pushstring(L, component->name);
-            return 2;
+            return 1;
         }
 
-    lua_pushboolean(L, false);
-    lua_pushstring(L, "no such component");
-    return 2;
+    return luaL_error(L, "no such component");
 }
 
 static int component_slot(lua_State *L) {
-    lua_pushboolean(L, true);
     lua_pushnumber(L, -1);
-    return 2;
+    return 1;
 }
 
 static int component_methods(lua_State *L) {
@@ -59,7 +57,8 @@ static int component_methods(lua_State *L) {
 
     for (struct component *component = first_component; component != NULL; component = component->next)
         if (!strcmp(component->address, address)) {
-            lua_pushboolean(L, true);
+            lua_checkstack(L, 3);
+
             lua_newtable(L);
 
             for (struct method *method = component->first_method; method != NULL; method = method->next) {
@@ -77,9 +76,7 @@ static int component_methods(lua_State *L) {
             return 1;
         }
 
-    lua_pushboolean(L, false);
-    lua_pushstring(L, "no such component");
-    return 2;
+    return luaL_error(L, "no such component");
 }
 
 static int component_invoke(lua_State *L) {
@@ -90,22 +87,50 @@ static int component_invoke(lua_State *L) {
         if (!strcmp(component->address, address)) {
             for (struct method *method = component->first_method; method != NULL; method = method->next)
                 if (!strcmp(method->name, name))
-                    return method->invoke(L, address, component->data);
+                    return method->invoke(L, component->data, 3);
 
-            lua_pushboolean(L, false);
-            lua_pushstring(L, "no such method");
-            return 2;
+            return luaL_error(L, "no such method");
         }
 
-    lua_pushboolean(L, false);
-    lua_pushstring(L, "no such component");
-    return 2;
+    return luaL_error(L, "no such component");
 }
 
 static int component_doc(lua_State *L) {
-    lua_pushboolean(L, true);
     lua_pushnil(L);
-    return 2;
+    return 1;
+}
+
+static int proxy_call(lua_State *L) {
+    void *data = (void *) ((uintptr_t) lua_tonumber(L, lua_upvalueindex(1)));
+    struct method *method = (struct method *) ((uintptr_t) lua_tonumber(L, lua_upvalueindex(2)));
+    return method->invoke(L, data, 1);
+}
+
+static int component_proxy(lua_State *L) {
+    const char *address = luaL_checkstring(L, 1);
+
+    for (struct component *component = first_component; component != NULL; component = component->next)
+        if (!strcmp(component->address, address)) {
+            lua_checkstack(L, 3);
+
+            lua_newtable(L);
+
+            lua_pushstring(L, address);
+            lua_setfield(L, -2, "address");
+            lua_pushstring(L, component->name);
+            lua_setfield(L, -2, "type");
+
+            for (struct method *method = component->first_method; method != NULL; method = method->next) {
+                lua_pushnumber(L, (uintptr_t) component->data);
+                lua_pushnumber(L, (uintptr_t) method); // only slightly cursed :3
+                lua_pushcclosure(L, proxy_call, 2);
+                lua_setfield(L, -2, method->name);
+            }
+
+            return 1;
+        }
+
+    return luaL_error(L, "no such component");
 }
 
 static const luaL_Reg funcs[] = {
@@ -115,6 +140,7 @@ static const luaL_Reg funcs[] = {
     {"methods", component_methods},
     {"invoke", component_invoke},
     {"doc", component_doc},
+    {"proxy", component_proxy},
     {NULL, NULL}
 };
 
@@ -153,7 +179,7 @@ struct component *new_component(const char *name, const char *address, void *dat
     return component;
 }
 
-void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L, const char *address, void *data), uint8_t flags) {
+void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L, void *data, int arguments_start), uint8_t flags) {
     struct method *method = malloc(sizeof(struct method));
     assert(method != NULL);
     assert(component != NULL);

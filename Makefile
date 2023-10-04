@@ -1,7 +1,7 @@
 LDFLAGS += -melf_i386 -Tkernel.ld
 CFLAGS += -O2 -m32 -march=i386 -nostartfiles -nostdlib -nostdinc -fno-stack-protector -static -static-libgcc \
 	-Ilibc/include -Ilibc/printf/src -Ilibc/arch/x86/include -Ilibc/openlibm/include -Ilibc/openlibm/src \
-	-Ilua -Ilibmemory/include -include common.h -Wall -g
+	-Ilua -Ilibmemory/include -Isrc -include common.h -Wall -g
 ASFLAGS += -32 -march=i386
 
 LUA_OBJS = lua/lapi.o lua/lcode.o lua/lctype.o lua/ldebug.o lua/ldo.o lua/ldump.o lua/lfunc.o lua/lgc.o lua/llex.o \
@@ -9,8 +9,8 @@ LUA_OBJS = lua/lapi.o lua/lcode.o lua/lctype.o lua/ldebug.o lua/ldo.o lua/ldump.
 	lua/ltm.o lua/lundump.o lua/lvm.o lua/lzio.o lua/ltests.o lua/lauxlib.o lua/lbaselib.o lua/ldblib.o \
 	lua/lmathlib.o lua/ltablib.o lua/lstrlib.o lua/lutf8lib.o lua/lcorolib.o
 
-OBJECTS = init.o main.o stubs.o interrupts.o isr.o rtc.o computerlib.o componentlib.o uuid.o tar.o vgatext.o gpu.o \
-	initrd.o $(LUA_OBJS) arith64/arith64.o
+OBJECTS = src/init.o src/main.o src/stubs.o src/interrupts.o src/isr.o src/rtc.o src/computerlib.o src/componentlib.o \
+	src/uuid.o src/tar.o src/vgatext.o src/gpu.o src/initrd.o src/eeprom.o $(LUA_OBJS) arith64/arith64.o
 BINARY = kernel
 
 LIBC_A = libc/buildresults/src/libc.a

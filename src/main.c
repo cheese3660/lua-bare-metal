@@ -16,6 +16,7 @@
 #include "vgatext.h"
 #include "gpu.h"
 #include "initrd.h"
+#include "eeprom.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;
@@ -37,14 +38,6 @@ static const luaL_Reg loadedlibs[] = {
     {"component", luaopen_component},
     {NULL, NULL}
 };
-
-static const char *eeprom_data = NULL;
-
-static int eeprom_get(lua_State *L, const char *address, void *data) {
-    lua_pushboolean(L, true);
-    lua_pushstring(L, eeprom_data == NULL ? "" : eeprom_data);
-    return 2;
-}
 
 static char *message_traceback(lua_State *L) {
     luaL_traceback(L, L, lua_tostring(L, -1), 1);
@@ -144,13 +137,8 @@ void kmain(void) {
     srand(epoch_time);
 
     printf("initializing components\n");
-
-    struct component *eeprom = new_component("eeprom", new_uuid(), NULL);
-    add_method(eeprom, "get", eeprom_get, METHOD_DIRECT | METHOD_GETTER);
-    add_component(eeprom);
-
+    struct eeprom_data *eeprom = eeprom_init();
     struct gpu *gpu = vgatext_init();
-
     if (mboot_ptr->mods_count != 0)
         initrd_init(mboot_ptr->mods_addr->string, mboot_ptr->mods_addr->start, mboot_ptr->mods_addr->end);
 
@@ -175,7 +163,7 @@ void kmain(void) {
 
         iter = open_tar(module->start, module->end);
         if (find_file(iter, "/bios.lua", &data, &size))
-            eeprom_data = data;
+            eeprom->contents = data;
 
         iter = open_tar(module->start, module->end);
         if (find_file(iter, "/machine.lua", &data, &size))

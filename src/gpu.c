@@ -14,35 +14,29 @@ struct stored_character {
     int background;
 };
 
-static int return_true(lua_State *L, const char *address, void *data) {
+static int return_true(lua_State *L, void *data, int arguments_start) {
     lua_pushboolean(L, true);
-    lua_pushboolean(L, true);
-    return 2;
+    return 1;
 }
 
-static int return_false(lua_State *L, const char *address, void *data) {
-    lua_pushboolean(L, true);
+static int return_false(lua_State *L, void *data, int arguments_start) {
     lua_pushboolean(L, false);
-    return 2;
+    return 1;
 }
 
-static int throw_unsupported(lua_State *L, const char *address, void *data) {
-    lua_pushboolean(L, false);
-    lua_pushliteral(L, "unsupported");
-    return 2;
+static int throw_unsupported(lua_State *L, void *data, int arguments_start) {
+    return luaL_error(L, "unsupported");
 }
 
-static int screen_get_aspect_ratio(lua_State *L, const char *address, void *data) {
-    lua_pushboolean(L, true);
+static int screen_get_aspect_ratio(lua_State *L, void *data, int arguments_start) {
     lua_pushnumber(L, 1);
     lua_pushnumber(L, 1);
-    return 3;
+    return 2;
 }
 
-static int screen_get_keyboards(lua_State *L, const char *address, void *data) {
-    lua_pushboolean(L, true);
+static int screen_get_keyboards(lua_State *L, void *data, int arguments_start) {
     lua_newtable(L);
-    return 2;
+    return 1;
 }
 
 static void create_screen(struct gpu *gpu) {
@@ -61,31 +55,21 @@ static void create_screen(struct gpu *gpu) {
     add_component(screen);
 }
 
-static int gpu_bind(lua_State *L, const char *address, void *data) {
-    lua_pushboolean(L, true);
-    lua_pushboolean(L, false);
-    lua_pushliteral(L, "unsupported");
-    return 3;
+static int gpu_get_screen(lua_State *L, struct gpu *gpu, int arguments_start) {
+    lua_pushstring(L, gpu->screen_address);
+    return 1;
 }
 
-static int gpu_get_screen(lua_State *L, const char *address, struct gpu *gpu) {
-    lua_pushboolean(L, true);
-    lua_pushstring(L, gpu->screen_address);
+static int gpu_get_background(lua_State *L, struct gpu *gpu, int arguments_start) {
+    lua_pushnumber(L, gpu->background);
+    lua_pushboolean(L, gpu->palette_size > 0);
     return 2;
 }
 
-static int gpu_get_background(lua_State *L, const char *address, struct gpu *gpu) {
-    lua_pushboolean(L, true);
-    lua_pushnumber(L, gpu->background);
-    lua_pushboolean(L, gpu->palette_size > 0);
-    return 3;
-}
-
-static int gpu_get_foreground(lua_State *L, const char *address, struct gpu *gpu) {
-    lua_pushboolean(L, true);
+static int gpu_get_foreground(lua_State *L, struct gpu *gpu, int arguments_start) {
     lua_pushnumber(L, gpu->foreground);
     lua_pushboolean(L, gpu->palette_size > 0);
-    return 3;
+    return 2;
 }
 
 static int find_closest_color(struct gpu *gpu, int color) {
@@ -116,104 +100,84 @@ static int find_closest_color(struct gpu *gpu, int color) {
     return closest;
 }
 
-static int gpu_set_background(lua_State *L, const char *address, struct gpu *gpu) {
-    int color = luaL_checknumber(L, 3);
-    bool is_palette_index = lua_isboolean(L, 4) ? lua_toboolean(L, 4) : false;
+static int gpu_set_background(lua_State *L, struct gpu *gpu, int arguments_start) {
+    int color = luaL_checknumber(L, arguments_start);
+    bool is_palette_index = lua_isboolean(L, arguments_start + 1) ? lua_toboolean(L, arguments_start + 1) : false;
 
     if (gpu->palette_size == 0) {
         gpu->background = color;
-        lua_pushboolean(L, true);
         lua_pushnumber(L, gpu->background);
-        return 2;
+        return 1;
     }
 
     if (!is_palette_index)
         color = find_closest_color(gpu, color);
 
-    if (color >= gpu->palette_size) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "palette index is outside bounds of palette");
-        return 2;
-    }
+    if (color >= gpu->palette_size)
+        return luaL_error(L, "palette index is outside bounds of palette");
 
     gpu->background = color;
-    lua_pushboolean(L, true);
     lua_pushnumber(L, gpu->palette[gpu->background]);
     lua_pushnumber(L, gpu->background);
-    return 3;
+    return 2;
 }
 
-static int gpu_set_foreground(lua_State *L, const char *address, struct gpu *gpu) {
-    int color = luaL_checknumber(L, 3);
-    bool is_palette_index = lua_isboolean(L, 4) ? lua_toboolean(L, 4) : false;
+static int gpu_set_foreground(lua_State *L, struct gpu *gpu, int arguments_start) {
+    int color = luaL_checknumber(L, arguments_start);
+    bool is_palette_index = lua_isboolean(L, arguments_start + 1) ? lua_toboolean(L, arguments_start + 1) : false;
 
     if (gpu->palette_size == 0) {
         gpu->foreground = color;
-        lua_pushboolean(L, true);
         lua_pushnumber(L, gpu->foreground);
-        return 2;
+        return 1;
     }
 
     if (!is_palette_index)
         color = find_closest_color(gpu, color);
 
-    if (color >= gpu->palette_size) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "palette index is outside bounds of palette");
-        return 2;
-    }
+    if (color >= gpu->palette_size)
+        return luaL_error(L, "palette index is outside bounds of palette");
 
     gpu->foreground = color;
-    lua_pushboolean(L, true);
     lua_pushnumber(L, gpu->palette[gpu->foreground]);
     lua_pushnumber(L, gpu->foreground);
-    return 3;
+    return 2;
 }
 
-static int gpu_get_palette_color(lua_State *L, const char *address, struct gpu *gpu) {
-    if (gpu->palette_size == 0) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "no palette exists for this GPU");
-        return 2;
-    }
+static int gpu_get_palette_color(lua_State *L, struct gpu *gpu, int arguments_start) {
+    if (gpu->palette_size == 0)
+        return luaL_error(L, "no palette exists for this GPU");
 
     int color = luaL_checknumber(L, 3);
 
-    if (color >= gpu->palette_size) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "palette index is outside bounds of palette");
-        return 2;
-    }
+    if (color >= gpu->palette_size)
+        return luaL_error(L, "palette index is outside bounds of palette");
 
-    lua_pushboolean(L, true);
     lua_pushnumber(L, gpu->palette[color]);
-    return 2;
+    return 1;
 }
 
-static int gpu_get_depth(lua_State *L, const char *address, struct gpu *gpu) {
-    lua_pushboolean(L, true);
+static int gpu_get_depth(lua_State *L, struct gpu *gpu, int arguments_start) {
     lua_pushnumber(L, gpu->depth);
-    return 2;
+    return 1;
 }
 
-static int gpu_get_resolution(lua_State *L, const char *address, struct gpu *gpu) {
-    lua_pushboolean(L, true);
+static int gpu_get_resolution(lua_State *L, struct gpu *gpu, int arguments_start) {
     lua_pushnumber(L, gpu->width);
     lua_pushnumber(L, gpu->height);
-    return 3;
+    return 2;
 }
 
-static int gpu_get(lua_State *L, const char *address, struct gpu *gpu) {
-    int x = luaL_checknumber(L, 3) - 1;
-    int y = luaL_checknumber(L, 4) - 1;
+static int gpu_get(lua_State *L, struct gpu *gpu, int arguments_start) {
+    int x = luaL_checknumber(L, arguments_start) - 1;
+    int y = luaL_checknumber(L, arguments_start + 2) - 1;
 
-    if (x < 0 || y < 0 || x >= gpu->width || y >= gpu->height) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "position out of bounds");
-        return 2;
-    }
+    if (x < 0 || y < 0 || x >= gpu->width || y >= gpu->height)
+        return luaL_error(L, "position out of bounds");
 
     struct stored_character *c = &gpu->stored[y * gpu->width + x];
+
+    lua_checkstack(L, 5);
 
     lua_pushfstring(L, "%U", c->character);
 
@@ -271,25 +235,21 @@ static const char *utf8_decode (const char *s, uint32_t *val, int strict) {
     return s + 1;  /* +1 to include first byte */
 }
 
-static int gpu_set(lua_State *L, const char *address, struct gpu *gpu) {
-    int x = luaL_checknumber(L, 3) - 1;
-    int y = luaL_checknumber(L, 4) - 1;
-    const char *string = luaL_checkstring(L, 5);
-    bool vertical = lua_isboolean(L, 6) ? lua_toboolean(L, 6) : false;
+static int gpu_set(lua_State *L, struct gpu *gpu, int arguments_start) {
+    int x = luaL_checknumber(L, arguments_start) - 1;
+    int y = luaL_checknumber(L, arguments_start + 1) - 1;
+    const char *string = luaL_checkstring(L, arguments_start + 2);
+    bool vertical = lua_isboolean(L, arguments_start + 3) ? lua_toboolean(L, arguments_start + 3) : false;
     uint32_t c;
 
     if (x >= gpu->width || y >= gpu->height) {
-        lua_pushboolean(L, true);
         lua_pushboolean(L, false);
-        return 2;
+        return 1;
     }
 
     while (*string) {
-        if ((string = utf8_decode(string, &c, true)) == NULL) {
-            lua_pushboolean(L, false);
-            lua_pushliteral(L, "invalid UTF-8 code");
-            return 2;
-        }
+        if ((string = utf8_decode(string, &c, true)) == NULL)
+            return luaL_error(L, "invalid UTF-8 code");
 
         if (x >= 0 && y >= 0 && x < gpu->width && y < gpu->height) {
             gpu->set(x, y, c, gpu->foreground, gpu->background);
@@ -311,23 +271,21 @@ static int gpu_set(lua_State *L, const char *address, struct gpu *gpu) {
     }
 
     lua_pushboolean(L, true);
-    lua_pushboolean(L, true);
-    return 2;
+    return 1;
 }
 
-static int gpu_copy(lua_State *L, const char *address, struct gpu *gpu) {
-    int x = luaL_checknumber(L, 3) - 1;
-    int y = luaL_checknumber(L, 4) - 1;
-    int width = luaL_checknumber(L, 5);
-    int height = luaL_checknumber(L, 6);
-    int target_x = x + luaL_checknumber(L, 7);
-    int target_y = y + luaL_checknumber(L, 8);
+static int gpu_copy(lua_State *L, struct gpu *gpu, int arguments_start) {
+    int x = luaL_checknumber(L, arguments_start) - 1;
+    int y = luaL_checknumber(L, arguments_start + 1) - 1;
+    int width = luaL_checknumber(L, arguments_start + 2);
+    int height = luaL_checknumber(L, arguments_start + 3);
+    int target_x = x + luaL_checknumber(L, arguments_start + 4);
+    int target_y = y + luaL_checknumber(L, arguments_start + 5);
 
     /* all of this is undefined behavior so if it doesn't work properly that's the documentation's fault, not mine :3 */
     if (width <= 0 || height <= 0 || x >= gpu->width || y >= gpu->height || target_x >= gpu->width || target_y >= gpu->height || (target_x == x && target_y == y)) {
-        lua_pushboolean(L, true);
         lua_pushboolean(L, false);
-        return 2;
+        return 1;
     }
 
     if (x < 0) {
@@ -389,8 +347,7 @@ static int gpu_copy(lua_State *L, const char *address, struct gpu *gpu) {
             }
 
     lua_pushboolean(L, true);
-    lua_pushboolean(L, true);
-    return 2;
+    return 1;
 }
 
 static int fill(struct gpu *gpu, int x0, int y0, int x1, int y1, uint32_t c) {
@@ -416,38 +373,33 @@ static int fill(struct gpu *gpu, int x0, int y0, int x1, int y1, uint32_t c) {
         }
 }
 
-static int gpu_fill(lua_State *L, const char *address, struct gpu *gpu) {
-    int x = luaL_checknumber(L, 3);
-    int y = luaL_checknumber(L, 4);
-    int width = luaL_checknumber(L, 5);
-    int height = luaL_checknumber(L, 6);
-    const char *string = luaL_checkstring(L, 7);
+static int gpu_fill(lua_State *L, struct gpu *gpu, int arguments_start) {
+    int x = luaL_checknumber(L, arguments_start);
+    int y = luaL_checknumber(L, arguments_start + 1);
+    int width = luaL_checknumber(L, arguments_start + 2);
+    int height = luaL_checknumber(L, arguments_start + 3);
+    const char *string = luaL_checkstring(L, arguments_start + 4);
     uint32_t c;
 
     if (!*string || width <= 0 || height <= 0) {
-        lua_pushboolean(L, true);
         lua_pushboolean(L, false);
-        return 2;
+        return 1;
     }
 
-    if (utf8_decode(string, &c, true) == NULL) {
-        lua_pushboolean(L, false);
-        lua_pushliteral(L, "invalid UTF-8 code");
-        return 2;
-    }
+    if (utf8_decode(string, &c, true) == NULL)
+        return luaL_error(L, "invalid UTF-8 code");
 
     fill(gpu, x - 1, y - 1, x - 1 + width, y - 1 + height, c);
 
     lua_pushboolean(L, true);
-    lua_pushboolean(L, true);
-    return 2;
+    return 1;
 }
 
 void gpu_init(struct gpu *gpu) {
     create_screen(gpu);
 
     struct component *gpu_component = new_component("gpu", new_uuid(), gpu);
-    add_method(gpu_component, "bind", gpu_bind, METHOD_DIRECT);
+    add_method(gpu_component, "bind", throw_unsupported, METHOD_DIRECT);
     add_method(gpu_component, "getScreen", gpu_get_screen, METHOD_DIRECT | METHOD_GETTER);
     add_method(gpu_component, "getBackground", gpu_get_background, METHOD_DIRECT | METHOD_GETTER);
     add_method(gpu_component, "getForeground", gpu_get_foreground, METHOD_DIRECT | METHOD_GETTER);
@@ -485,6 +437,8 @@ void gpu_init(struct gpu *gpu) {
 
 void gpu_error_message(struct gpu *gpu, const char *message) {
     printf("%s\n", message);
+
+    return;
 
     if (gpu->palette_size == 0) {
         gpu->foreground = 0xffffff;
