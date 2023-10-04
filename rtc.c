@@ -31,7 +31,7 @@ void rtc_init(void) {
 uint8_t rtc_read(uint8_t index) {
     __asm__ __volatile__ ("cli");
     outb(0x70, index);
-    for (int i = 0; i < 1048576; i ++);
+    for (int i = 0; i < 1048576; i++);
     uint8_t value = inb(0x71);
     __asm__ __volatile__ ("sti");
     return value;
@@ -40,7 +40,7 @@ uint8_t rtc_read(uint8_t index) {
 void rtc_write(uint8_t index, uint8_t value) {
     __asm__ __volatile__ ("cli");
     outb(0x70, index);
-    for (int i = 0; i < 1048576; i ++);
+    for (int i = 0; i < 1048576; i++);
     outb(0x71, value);
     __asm__ __volatile__ ("sti");
 }
@@ -126,12 +126,12 @@ uint64_t get_time(void) {
 }
 
 void timer_tick(void) {
-    jiffies_frac ++;
+    jiffies_frac++;
 
     if (jiffies_frac > 1024) {
         jiffies_frac = 0;
-        epoch_time ++;
-        uptime ++;
+        epoch_time++;
+        uptime++;
     }
 
     outb(0x70, 0x0c);

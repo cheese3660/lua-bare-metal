@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
 #include "componentlib.h"
@@ -21,9 +22,7 @@ static int component_list(lua_State *L) {
     lua_newtable(L);
 
     for (struct component *component = first_component; component != NULL; component = component->next) {
-        bool matches = !*filter || is_exact ? !strcmp(component->name, filter) : strstr(component->name, filter);
-
-        if (!matches)
+        if (*filter && is_exact ? strcmp(component->name, filter) : !strstr(component->name, filter))
             continue;
 
         lua_pushstring(L, component->address);
@@ -35,14 +34,23 @@ static int component_list(lua_State *L) {
 }
 
 static int component_type(lua_State *L) {
-    lua_pushnil(L);
-    lua_pushstring(L, "component_type unimplemented");
+    const char *address = luaL_checkstring(L, 1);
+
+    for (struct component *component = first_component; component != NULL; component = component->next)
+        if (!strcmp(component->address, address)) {
+            lua_pushboolean(L, true);
+            lua_pushstring(L, component->name);
+            return 2;
+        }
+
+    lua_pushboolean(L, false);
+    lua_pushstring(L, "no such component");
     return 2;
 }
 
 static int component_slot(lua_State *L) {
-    lua_pushnil(L);
-    lua_pushstring(L, "component_slot unimplemented");
+    lua_pushboolean(L, true);
+    lua_pushnumber(L, -1);
     return 2;
 }
 
@@ -51,6 +59,7 @@ static int component_methods(lua_State *L) {
 
     for (struct component *component = first_component; component != NULL; component = component->next)
         if (!strcmp(component->address, address)) {
+            lua_pushboolean(L, true);
             lua_newtable(L);
 
             for (struct method *method = component->first_method; method != NULL; method = method->next) {
@@ -68,7 +77,7 @@ static int component_methods(lua_State *L) {
             return 1;
         }
 
-    lua_pushnil(L);
+    lua_pushboolean(L, false);
     lua_pushstring(L, "no such component");
     return 2;
 }
@@ -80,24 +89,22 @@ static int component_invoke(lua_State *L) {
     for (struct component *component = first_component; component != NULL; component = component->next)
         if (!strcmp(component->address, address)) {
             for (struct method *method = component->first_method; method != NULL; method = method->next)
-                if (!strcmp(method->name, name)) {
-                    lua_pushboolean(L, 1);
-                    return method->invoke(L) + 1;
-                }
+                if (!strcmp(method->name, name))
+                    return method->invoke(L, address, component->data);
 
-            lua_pushnil(L);
+            lua_pushboolean(L, false);
             lua_pushstring(L, "no such method");
             return 2;
         }
 
-    lua_pushnil(L);
+    lua_pushboolean(L, false);
     lua_pushstring(L, "no such component");
     return 2;
 }
 
 static int component_doc(lua_State *L) {
+    lua_pushboolean(L, true);
     lua_pushnil(L);
-    lua_pushstring(L, "component_doc unimplemented");
     return 2;
 }
 
@@ -127,9 +134,11 @@ void add_component(struct component *component) {
         last_component->next = component;
         last_component = component;
     }
+
+    printf("added \"%s\" component at %s\n", component->name, component->address);
 }
 
-struct component *new_component(const char *name, const char *address) {
+struct component *new_component(const char *name, const char *address, void *data) {
     struct component *component = malloc(sizeof(struct component));
     assert(component != NULL);
     assert(name != NULL);
@@ -137,13 +146,14 @@ struct component *new_component(const char *name, const char *address) {
 
     component->name = name;
     component->address = address;
+    component->data = data;
     component->first_method = NULL;
     component->last_method = NULL;
 
     return component;
 }
 
-void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L), uint8_t flags) {
+void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L, const char *address, void *data), uint8_t flags) {
     struct method *method = malloc(sizeof(struct method));
     assert(method != NULL);
     assert(component != NULL);

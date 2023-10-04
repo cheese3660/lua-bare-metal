@@ -7,10 +7,13 @@
 #include <lualib.h>
 #include <malloc.h>
 #include <assert.h>
+#include <stdbool.h>
 #include "multiboot.h"
 #include "interrupts.h"
 #include "rtc.h"
 #include "componentlib.h"
+#include "uuid.h"
+#include "vgatext.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;
@@ -33,9 +36,44 @@ static const luaL_Reg loadedlibs[] = {
     {NULL, NULL}
 };
 
-int eeprom_invoke(lua_State *L) {
-    lua_pushstring(L, "error(\"UwU OwO\")");
-    return 1;
+static const char *eeprom_data = NULL;
+
+static int eeprom_get(lua_State *L, const char *address, void *data) {
+    lua_pushboolean(L, true);
+    lua_pushstring(L, eeprom_data == NULL ? "" : eeprom_data);
+    return 2;
+}
+
+void run_string(lua_State *L, const char *name, const char *data, size_t size) {
+    if (size == 0)
+        return;
+
+    if (luaL_loadbuffer(L, data, size, name)) {
+        printf("%s\n", lua_tostring(L, -1));
+        lua_pop(L, 1);
+        return;
+    }
+
+    while (1) {
+        int nresults;
+
+        switch (lua_resume(L, NULL, 0, &nresults)) {
+            case LUA_OK:
+                /* temporary */
+                printf("%s\n", lua_tostring(L, -1));
+                lua_pop(L, 1);
+                break;
+            case LUA_YIELD:
+                lua_pop(L, nresults);
+                continue;
+            default:
+                printf("%s\n", lua_tostring(L, -1));
+                lua_pop(L, 1);
+                break;
+        }
+
+        break;
+    }
 }
 
 void kmain(void) {
@@ -83,7 +121,8 @@ void kmain(void) {
 
     struct module_entry *module = mboot_ptr->mods_addr;
 
-    for (int i = 0; i < mboot_ptr->mods_count; i ++, module ++) {
+    //for (int i = 0; i < mboot_ptr->mods_count; i ++, module ++) {
+    if (mboot_ptr->mods_count) {
         uint32_t size = (uint32_t) module->end - (uint32_t) module->start;
         printf("%08x - %08x (%d.%02d KiB): \"%s\"\n", module->start, module->end, size / 1024, (size / 10) % 100, module->string);
 
@@ -105,10 +144,15 @@ void kmain(void) {
 
     rtc_init();
     printf("time is %lld\n", epoch_time);
+    srand(epoch_time);
 
-    struct component *eeprom = new_component("eeprom", "00000000-0000-0000-0000-000000000001");
-    add_method(eeprom, "get", eeprom_invoke, METHOD_DIRECT);
+    printf("initializing components\n");
+
+    struct component *eeprom = new_component("eeprom", new_uuid(), NULL);
+    add_method(eeprom, "get", eeprom_get, METHOD_DIRECT);
     add_component(eeprom);
+
+    vgatext_init();
 
     printf("starting Lua\n");
     lua_State *L = luaL_newstate();
@@ -122,35 +166,20 @@ void kmain(void) {
         lua_pop(L, 1);  /* remove lib */
     }
 
-    if (mboot_ptr->mods_count == 0)
-        printf("nothing to run!\n");
-    else {
+    if (mboot_ptr->mods_count != 0) {
         module = mboot_ptr->mods_addr;
-        printf("running module \"%s\"\n", module->string);
 
-        lua_State *main = lua_newthread(L);
+        struct tar_iterator *iter;
+        const char *data;
+        size_t size;
 
-        if (luaL_loadbuffer(main, module->start, module->end - module->start, module->string))
-            printf("%s\n", lua_tostring(L, -1));
+        iter = open_tar(module->start, module->end);
+        if (find_file(iter, "bios.lua", &data, &size))
+            eeprom_data = data;
 
-        while (1) {
-            int nresults;
-
-            switch (lua_resume(main, NULL, 0, &nresults)) {
-                case LUA_OK:
-                    /* temporary */
-                    printf("%s\n", lua_tostring(main, -1));
-                    break;
-                case LUA_YIELD:
-                    lua_pop(main, nresults);
-                    continue;
-                default:
-                    printf("%s\n", lua_tostring(main, -1));
-                    break;
-            }
-
-            break;
-        }
+        iter = open_tar(module->start, module->end);
+        if (find_file(iter, "machine.lua", &data, &size))
+            run_string(L, "=machine.lua", data, size);
     }
 
     printf("finished execution, halting\n");
