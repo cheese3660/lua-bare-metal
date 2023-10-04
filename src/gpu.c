@@ -438,8 +438,6 @@ void gpu_init(struct gpu *gpu) {
 void gpu_error_message(struct gpu *gpu, const char *message) {
     printf("%s\n", message);
 
-    return;
-
     if (gpu->palette_size == 0) {
         gpu->foreground = 0xffffff;
         gpu->background = 0x0000ff;

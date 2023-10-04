@@ -17,6 +17,8 @@
 #include "gpu.h"
 #include "initrd.h"
 #include "eeprom.h"
+#include "unicodelib.h"
+#include "tar.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;
@@ -36,6 +38,7 @@ static const luaL_Reg loadedlibs[] = {
     {LUA_DBLIBNAME, luaopen_debug},
     {"computer", luaopen_computer},
     {"component", luaopen_component},
+    {"unicode", luaopen_unicode},
     {NULL, NULL}
 };
 
@@ -162,11 +165,11 @@ void kmain(void) {
         size_t size;
 
         iter = open_tar(module->start, module->end);
-        if (find_file(iter, "/bios.lua", &data, &size))
+        if (tar_find(iter, "/bios.lua", TAR_NORMAL_FILE, &data, &size))
             eeprom->contents = data;
 
         iter = open_tar(module->start, module->end);
-        if (find_file(iter, "/machine.lua", &data, &size))
+        if (tar_find(iter, "/machine.lua", TAR_NORMAL_FILE, &data, &size))
             gpu_error_message(gpu, run_string(L, "=machine.lua", data, size));
         else
             gpu_error_message(gpu, "couldn't find machine.lua");

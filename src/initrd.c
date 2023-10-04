@@ -45,7 +45,7 @@ static int initrd_open(lua_State *L, struct initrd_data *data, int arguments_sta
     struct tar_iterator *iter = open_tar(data->start, data->end);
     const char *file_data;
     size_t file_size;
-    if (!find_file(iter, path, &file_data, &file_size))
+    if (!tar_find(iter, path, TAR_NORMAL_FILE, &file_data, &file_size))
         return luaL_error(L, "file not found");
 
     struct open_file *open_file = malloc(sizeof(struct open_file));
@@ -114,7 +114,7 @@ static int initrd_exists(lua_State *L, struct initrd_data *data, int arguments_s
     const char *file_data;
     size_t file_size;
 
-    lua_pushboolean(L, find_file(iter, path, &file_data, &file_size));
+    lua_pushboolean(L, tar_find(iter, path, 0, &file_data, &file_size));
     return 1;
 }
 
@@ -139,7 +139,7 @@ static int initrd_size(lua_State *L, struct initrd_data *data, int arguments_sta
     struct tar_iterator *iter = open_tar(data->start, data->end);
     const char *file_data;
     size_t file_size;
-    if (!find_file(iter, path, &file_data, &file_size))
+    if (!tar_find(iter, path, TAR_NORMAL_FILE, &file_data, &file_size))
         return luaL_error(L, "file not found");
 
     lua_pushnumber(L, file_size);
@@ -201,6 +201,98 @@ static int initrd_read(lua_State *L, struct initrd_data *data, int arguments_sta
     return 1;
 }
 
+static int initrd_is_directory(lua_State *L, struct initrd_data *data, int arguments_start) {
+    const char *path = luaL_checkstring(L, arguments_start);
+
+    struct tar_iterator *iter = open_tar(data->start, data->end);
+    const char *file_data;
+    size_t file_size;
+    if (!tar_find(iter, path, 0, &file_data, &file_size))
+        return luaL_error(L, "file not found");
+
+    struct tar_header *header = file_data - 512; // hehe
+
+    lua_pushboolean(L, header->kind == TAR_DIRECTORY);
+    return 1;
+}
+
+static int initrd_last_modified(lua_State *L, struct initrd_data *data, int arguments_start) {
+    const char *path = luaL_checkstring(L, arguments_start);
+
+    if (!*path) {
+        lua_pushboolean(L, false);
+        return 1;
+    }
+
+    struct tar_iterator *iter = open_tar(data->start, data->end);
+    const char *file_data;
+    size_t file_size;
+    if (!tar_find(iter, path, 0, &file_data, &file_size))
+        return luaL_error(L, "file not found");
+
+    struct tar_header *header = file_data - 512; // hehe
+
+    lua_pushnumber(L, oct2bin(&header->mod_time, 11));
+    return 1;
+}
+
+static int initrd_list(lua_State *L, struct initrd_data *data, int arguments_start) {
+    const char name[256];
+    const char *path = luaL_checkstring(L, arguments_start);
+
+    if (*path == '/')
+        path++;
+
+    size_t len = strlen(path);
+
+    if (path[len - 1] != '/') {
+        const char *old_path = path;
+        path = malloc(++len);
+        assert(path != NULL);
+        sprintf(path, "%s/", old_path);
+    }
+
+    lua_newtable(L);
+
+    struct tar_iterator *iter = open_tar(data->start, data->end);
+    const char *file_data;
+    size_t file_size;
+
+    if (!tar_find(iter, path, TAR_DIRECTORY, &file_data, &file_size))
+        return luaL_error(L, "directory not found");
+
+    for (int i = 1;; i++) {
+        struct tar_header *header;
+        const char *name_ptr = &name;
+
+        if (!next_file(iter, &header, &file_data, &file_size))
+            break;
+
+        header->name[99] = 0;
+        header->filename_prefix[154] = 0;
+        sprintf(name, "%s%s", header->name, header->filename_prefix);
+
+        if (*name_ptr == '/')
+            name_ptr++;
+
+        if (strstr(name_ptr, path) != name_ptr)
+            continue;
+
+        name_ptr += len;
+        size_t name_len = strlen(name_ptr);
+
+        const char *slash_pos = strchr(name_ptr, '/');
+        if (slash_pos != name_ptr + name_len - 1 && slash_pos != NULL)
+            continue; /* ignore anything in subdirectories */
+
+        lua_pushnumber(L, i);
+        lua_pushstring(L, name_ptr);
+        lua_rawset(L, -3);
+    }
+
+    return 1;
+}
+
 void initrd_init(const char *name, const char *start, const char *end) {
     struct initrd_data *data = malloc(sizeof(struct initrd_data));
     assert(data != NULL);
@@ -218,10 +310,10 @@ void initrd_init(const char *name, const char *start, const char *end) {
     add_method(filesystem, "isReadOnly", initrd_is_read_only, METHOD_DIRECT);
     add_method(filesystem, "write", initrd_readonly, METHOD_DIRECT);
     add_method(filesystem, "spaceTotal", initrd_space_used, METHOD_DIRECT | METHOD_GETTER);
-    // isDirectory
+    add_method(filesystem, "isDirectory", initrd_is_directory, METHOD_DIRECT);
     add_method(filesystem, "rename", initrd_readonly, METHOD_DIRECT);
-    // list
-    // lastModified
+    add_method(filesystem, "list", initrd_list, METHOD_DIRECT);
+    add_method(filesystem, "lastModified", initrd_last_modified, METHOD_DIRECT);
     add_method(filesystem, "getLabel", initrd_get_label, METHOD_DIRECT | METHOD_GETTER);
     add_method(filesystem, "remove", initrd_readonly, METHOD_DIRECT);
     add_method(filesystem, "close", initrd_close, METHOD_DIRECT);
