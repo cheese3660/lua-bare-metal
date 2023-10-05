@@ -11,14 +11,15 @@
 #include "multiboot.h"
 #include "interrupts.h"
 #include "rtc.h"
-#include "componentlib.h"
-#include "uuid.h"
-#include "vgatext.h"
-#include "gpu.h"
-#include "initrd.h"
-#include "eeprom.h"
-#include "unicodelib.h"
 #include "tar.h"
+#include "uuid.h"
+#include "component/vgatext.h"
+#include "component/gpu.h"
+#include "component/initrd.h"
+#include "component/eeprom.h"
+#include "api/component.h"
+#include "api/computer.h"
+#include "api/unicode.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;

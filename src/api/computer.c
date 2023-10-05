@@ -2,6 +2,7 @@
 #include <lauxlib.h>
 #include "rtc.h"
 #include "uuid.h"
+#include "api/computer.h"
 
 static const char *address;
 

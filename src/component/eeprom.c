@@ -4,7 +4,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include "eeprom.h"
-#include "componentlib.h"
+#include "api/component.h"
 
 static int eeprom_get(lua_State *L, struct eeprom_data *data, int arguments_start) {
     if (data->contents == NULL)

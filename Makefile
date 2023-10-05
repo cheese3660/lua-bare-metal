@@ -9,8 +9,10 @@ LUA_OBJS = lua/lapi.o lua/lcode.o lua/lctype.o lua/ldebug.o lua/ldo.o lua/ldump.
 	lua/ltm.o lua/lundump.o lua/lvm.o lua/lzio.o lua/ltests.o lua/lauxlib.o lua/lbaselib.o lua/ldblib.o \
 	lua/lmathlib.o lua/ltablib.o lua/lstrlib.o lua/lutf8lib.o lua/lcorolib.o
 
-OBJECTS = src/init.o src/main.o src/stubs.o src/interrupts.o src/isr.o src/rtc.o src/computerlib.o src/componentlib.o \
-	src/uuid.o src/tar.o src/vgatext.o src/gpu.o src/initrd.o src/eeprom.o src/unicodelib.o $(LUA_OBJS) arith64/arith64.o
+OBJECTS = src/init.o src/main.o src/stubs.o src/interrupts.o src/isr.o src/rtc.o src/uuid.o src/tar.o \
+	src/api/computer.o src/api/component.o src/api/unicode.o \
+	src/component/vgatext.o src/component/gpu.o src/component/initrd.o src/component/eeprom.o \
+	$(LUA_OBJS) arith64/arith64.o
 BINARY = kernel
 
 LIBC_A = libc/buildresults/src/libc.a

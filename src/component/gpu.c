@@ -6,7 +6,7 @@
 #include <lauxlib.h>
 #include "gpu.h"
 #include "uuid.h"
-#include "componentlib.h"
+#include "api/component.h"
 
 struct stored_character {
     uint32_t character;

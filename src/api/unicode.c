@@ -1,6 +1,6 @@
 #include <lauxlib.h>
 #include <lua.h>
-#include "unicodelib.h"
+#include "api/unicode.h"
 
 static const luaL_Reg funcs[] = {
     {NULL, NULL}

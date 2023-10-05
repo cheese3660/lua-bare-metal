@@ -7,7 +7,7 @@
 #include <lua.h>
 #include <lauxlib.h>
 #include "initrd.h"
-#include "componentlib.h"
+#include "api/component.h"
 #include "uuid.h"
 #include "tar.h"
 

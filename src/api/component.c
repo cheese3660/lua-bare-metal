@@ -5,7 +5,7 @@
 #include <stdlib.h>
 #include <lua.h>
 #include <lauxlib.h>
-#include "componentlib.h"
+#include "api/component.h"
 
 static struct component *first_component = NULL;
 static struct component *last_component = NULL;
