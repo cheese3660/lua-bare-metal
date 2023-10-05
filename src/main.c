@@ -45,7 +45,7 @@ static const luaL_Reg loadedlibs[] = {
     {NULL, NULL}
 };
 
-intptr_t memory_size = 0;
+uintptr_t memory_size = 0;
 
 static char *message_traceback(lua_State *L) {
     luaL_traceback(L, L, lua_tostring(L, -1), 1);
@@ -110,8 +110,8 @@ void kmain(void) {
     memory_size = (mboot_ptr->mem_lower + mboot_ptr->mem_upper) * 1024;
     printf("%d.%02d MiB of memory detected\n", memory_size / 1048576, (memory_size / 10485) % 100);
 
-    uint32_t largest_size = 0;
-    uint32_t base_addr = 0;
+    uintptr_t largest_size = 0;
+    uintptr_t base_addr = 0;
     struct mmap_entry *mmap = mboot_ptr->mmap_addr;
 
     for (int i = 0; i < mboot_ptr->mmap_length && mmap->size > 0; i += mmap->size + 4) {
@@ -121,23 +121,27 @@ void kmain(void) {
         if (mmap->type != AVAILABLE_RAM)
             continue;
 
-        if ((uint32_t) mmap->length <= largest_size)
+        if ((uintptr_t) mmap->length <= largest_size || mmap->base_addr > UINTPTR_MAX || mmap->length > UINTPTR_MAX)
+            continue;
+
+        uintptr_t tmp;
+        if (__builtin_add_overflow((uintptr_t) mmap->base_addr, (uintptr_t) mmap->length, &tmp))
             continue;
 
         largest_size = mmap->length;
         base_addr = mmap->base_addr;
     }
 
-    if ((uint32_t) &kernel_start >= base_addr || base_addr < (uint32_t) &kernel_end) {
-        uint32_t reduction = (uint32_t) &kernel_end - base_addr;
+    if ((uintptr_t) &kernel_start >= base_addr || base_addr < (uintptr_t) &kernel_end) {
+        uintptr_t reduction = (uintptr_t) &kernel_end - base_addr;
         assert(reduction < largest_size);
         largest_size -= reduction;
-        base_addr = (uint32_t) &kernel_end;
+        base_addr = (uintptr_t) &kernel_end;
     }
 
-    uint32_t header_end = (uint32_t) mboot_ptr + sizeof(struct multiboot_header);
-    if ((uint32_t) mboot_ptr >= base_addr || base_addr < header_end) {
-        uint32_t reduction = (uint32_t) header_end - base_addr;
+    uintptr_t header_end = (uintptr_t) mboot_ptr + sizeof(struct multiboot_header);
+    if ((uintptr_t) mboot_ptr >= base_addr || base_addr < header_end) {
+        uintptr_t reduction = (uintptr_t) header_end - base_addr;
         assert(reduction < largest_size);
         largest_size -= reduction;
         base_addr = header_end;
@@ -149,14 +153,14 @@ void kmain(void) {
 
     //for (int i = 0; i < mboot_ptr->mods_count; i ++, module ++) {
     if (mboot_ptr->mods_count) {
-        uint32_t size = (uint32_t) module->end - (uint32_t) module->start;
+        uintptr_t size = (uintptr_t) module->end - (uintptr_t) module->start;
         printf("%08x - %08x (%d.%02d KiB): \"%s\"\n", module->start, module->end, size / 1024, (size / 10) % 100, module->string);
 
-        if ((uint32_t) module->start >= base_addr || base_addr < (uint32_t) module->end) {
-            uint32_t reduction = (uint32_t) module->end - base_addr;
+        if ((uintptr_t) module->start >= base_addr || base_addr < (uintptr_t) module->end) {
+            uintptr_t reduction = (uintptr_t) module->end - base_addr;
             assert(reduction < largest_size);
             largest_size -= reduction;
-            base_addr = (uint32_t) module->end;
+            base_addr = (uintptr_t) module->end;
         }
     }
 

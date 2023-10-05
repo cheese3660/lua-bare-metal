@@ -227,7 +227,7 @@ static int computer_beep(lua_State *L) {
     return 0;
 }
 
-extern intptr_t memory_size;
+extern uintptr_t memory_size;
 
 static int total_memory(lua_State *L) {
     lua_pushinteger(L, memory_size);
