@@ -2,8 +2,6 @@
 
 set -e
 make
-mkdir -p iso
-mkdir -p iso/boot
 mkdir -p iso/boot/grub
 cp kernel ./iso/boot/kernel
 cp $1 iso/boot/initrd
