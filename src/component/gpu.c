@@ -43,15 +43,15 @@ static void create_screen(struct gpu *gpu) {
     gpu->screen_address = new_uuid();
 
     struct component *screen = new_component("screen", gpu->screen_address, gpu);
-    add_method(screen, "isOn", return_true, METHOD_DIRECT | METHOD_GETTER);
-    add_method(screen, "turnOn", return_false, METHOD_DIRECT | METHOD_SETTER);
-    add_method(screen, "turnOff", return_false, METHOD_DIRECT | METHOD_SETTER);
-    add_method(screen, "getAspectRatio", screen_get_aspect_ratio, METHOD_DIRECT | METHOD_GETTER);
-    add_method(screen, "getKeyboards", screen_get_keyboards, METHOD_DIRECT | METHOD_GETTER);
-    add_method(screen, "setPrecise", return_true, METHOD_DIRECT | METHOD_SETTER);
-    add_method(screen, "isPrecise", return_true, METHOD_DIRECT | METHOD_GETTER);
-    add_method(screen, "setTouchModeInverted", return_false, METHOD_DIRECT | METHOD_SETTER);
-    add_method(screen, "isTouchModeInverted", return_false, METHOD_DIRECT | METHOD_GETTER);
+    add_method(screen, "isOn", return_true);
+    add_method(screen, "turnOn", return_false);
+    add_method(screen, "turnOff", return_false);
+    add_method(screen, "getAspectRatio", screen_get_aspect_ratio);
+    add_method(screen, "getKeyboards", screen_get_keyboards);
+    add_method(screen, "setPrecise", return_true);
+    add_method(screen, "isPrecise", return_true);
+    add_method(screen, "setTouchModeInverted", return_false);
+    add_method(screen, "isTouchModeInverted", return_false);
     add_component(screen);
 }
 
@@ -399,26 +399,26 @@ void gpu_init(struct gpu *gpu) {
     create_screen(gpu);
 
     struct component *gpu_component = new_component("gpu", new_uuid(), gpu);
-    add_method(gpu_component, "bind", throw_unsupported, METHOD_DIRECT);
-    add_method(gpu_component, "getScreen", gpu_get_screen, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "getBackground", gpu_get_background, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "getForeground", gpu_get_foreground, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "setBackground", gpu_set_background, METHOD_DIRECT | METHOD_SETTER);
-    add_method(gpu_component, "setForeground", gpu_set_foreground, METHOD_DIRECT | METHOD_SETTER);
-    add_method(gpu_component, "getPaletteColor", gpu_get_palette_color, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "setPaletteColor", throw_unsupported, METHOD_DIRECT | METHOD_SETTER);
-    add_method(gpu_component, "maxDepth", gpu_get_depth, METHOD_DIRECT);
-    add_method(gpu_component, "getDepth", gpu_get_depth, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "setDepth", throw_unsupported, METHOD_DIRECT | METHOD_SETTER);
-    add_method(gpu_component, "maxResolution", gpu_get_resolution, METHOD_DIRECT);
-    add_method(gpu_component, "getResolution", gpu_get_resolution, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "setResolution", return_false, METHOD_DIRECT | METHOD_SETTER);
-    add_method(gpu_component, "getViewport", gpu_get_resolution, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "setViewport", return_false, METHOD_DIRECT | METHOD_SETTER);
-    add_method(gpu_component, "get", gpu_get, METHOD_DIRECT | METHOD_GETTER);
-    add_method(gpu_component, "set", gpu_set, METHOD_DIRECT | METHOD_SETTER);
-    add_method(gpu_component, "copy", gpu_copy, METHOD_DIRECT);
-    add_method(gpu_component, "fill", gpu_fill, METHOD_DIRECT);
+    add_method(gpu_component, "bind", throw_unsupported);
+    add_method(gpu_component, "getScreen", gpu_get_screen);
+    add_method(gpu_component, "getBackground", gpu_get_background);
+    add_method(gpu_component, "getForeground", gpu_get_foreground);
+    add_method(gpu_component, "setBackground", gpu_set_background);
+    add_method(gpu_component, "setForeground", gpu_set_foreground);
+    add_method(gpu_component, "getPaletteColor", gpu_get_palette_color);
+    add_method(gpu_component, "setPaletteColor", throw_unsupported);
+    add_method(gpu_component, "maxDepth", gpu_get_depth);
+    add_method(gpu_component, "getDepth", gpu_get_depth);
+    add_method(gpu_component, "setDepth", throw_unsupported);
+    add_method(gpu_component, "maxResolution", gpu_get_resolution);
+    add_method(gpu_component, "getResolution", gpu_get_resolution);
+    add_method(gpu_component, "setResolution", return_false);
+    add_method(gpu_component, "getViewport", gpu_get_resolution);
+    add_method(gpu_component, "setViewport", return_false);
+    add_method(gpu_component, "get", gpu_get);
+    add_method(gpu_component, "set", gpu_set);
+    add_method(gpu_component, "copy", gpu_copy);
+    add_method(gpu_component, "fill", gpu_fill);
     add_component(gpu_component);
 
     if (gpu->palette_size == 0) {

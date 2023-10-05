@@ -2,9 +2,9 @@
 
 #include <stdint.h>
 
-extern uint16_t jiffies_frac;
-extern uint64_t epoch_time;
-extern uint64_t uptime;
+extern volatile uint16_t jiffies_frac;
+extern volatile uint64_t epoch_time;
+extern volatile uint64_t uptime;
 
 void rtc_init(void);
 uint8_t rtc_read(uint8_t index);

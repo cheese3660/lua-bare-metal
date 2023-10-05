@@ -21,7 +21,6 @@ struct method {
     const char *name;
     // invokes this method on its component. arguments are passed in a table in index 3 of the stack
     int (*invoke)(lua_State *L, void *data, int arguments_start);
-    uint8_t flags;
 
     struct method *next;
 };
@@ -33,4 +32,4 @@ struct method {
 int luaopen_component(lua_State *L);
 void add_component(struct component *component);
 struct component *new_component(const char *name, const char *address, void *data);
-void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L, void *data, int arguments_start), uint8_t flags);
+void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L, void *data, int arguments_start));

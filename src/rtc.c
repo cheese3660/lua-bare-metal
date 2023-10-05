@@ -5,9 +5,9 @@
 
 static bool is_24h = false;
 static bool is_bcd = false;
-uint16_t jiffies_frac = 0;
-uint64_t epoch_time = 0;
-uint64_t uptime = 0;
+volatile uint16_t jiffies_frac = 0;
+volatile uint64_t epoch_time = 0;
+volatile uint64_t uptime = 0;
 
 void rtc_init(void) {
     outb(0x70, 0x0c);

@@ -6,6 +6,7 @@
 #include <lauxlib.h>
 #include "rtc.h"
 #include "uuid.h"
+#include "io.h"
 #include "api/computer.h"
 
 static const char *address;
@@ -48,12 +49,10 @@ static volatile int buffer_pos = 0;
 static bool queue_signal(struct signal *signal) {
     assert(signal != NULL);
 
-    __asm__ __volatile__ ("cli");
-
-    if (in_buffer >= MAX_SIGNALS) {
-        __asm__ __volatile__ ("sti");
+    if (in_buffer >= MAX_SIGNALS)
         return false;
-    }
+
+    __asm__ __volatile__ ("cli");
 
     memcpy(&signal_buffer[(buffer_pos + in_buffer) % MAX_SIGNALS], signal, sizeof(struct signal));
     in_buffer ++;
@@ -173,12 +172,78 @@ static int pull_signal(lua_State *L) {
     return arguments + 1;
 }
 
+static int get_tmp_address(lua_State *L) {
+    lua_pushnil(L);
+    return 1;
+}
+
+static void delay(lua_Number duration) {
+    uint64_t seconds = (int) duration;
+    uint16_t jiffies = (int) (duration * 1024.0) % 1024;
+
+    uint64_t deadline_seconds = uptime + seconds;
+    uint16_t deadline_jiffies = jiffies_frac + jiffies;
+    deadline_seconds += deadline_jiffies / 1024;
+    deadline_jiffies %= 1024;
+
+    while (uptime < deadline_seconds || jiffies_frac < deadline_jiffies);
+}
+
+static void beep(int frequency, lua_Number duration) {
+    int div = 1193180 / frequency;
+    outb(0x43, 0xb6);
+    outb(0x42, div & 0xff);
+    outb(0x42, (div >> 8) & 0xff);
+
+    uint8_t tmp = inb(0x61);
+    if (tmp != (tmp | 3))
+        outb(0x61, tmp | 3);
+
+    delay(duration);
+
+    tmp = inb(0x61) & 0xfc;
+    outb(0x61, tmp);
+}
+
+static int computer_beep(lua_State *L) {
+    if (lua_isnumber(L, 1)) {
+        int frequency = lua_isnumber(L, 1) ? lua_tointeger(L, 1) : 440;
+        lua_Number duration = lua_isnumber(L, 2) ? lua_tonumber(L, 2) : 0.1;
+
+        beep(frequency, duration);
+    } else {
+        const char *s = luaL_checkstring(L, 1);
+        
+        for (; *s; s++) {
+            if (*s == '.')
+                beep(1000, 0.1);
+            else
+                beep(1000, 0.2);
+
+            delay(0.05);
+        }
+    }
+
+    return 0;
+}
+
+extern intptr_t memory_size;
+
+static int total_memory(lua_State *L) {
+    lua_pushinteger(L, memory_size);
+    return 1;
+}
+
 static const luaL_Reg funcs[] = {
     {"realTime", get_real_time},
     {"uptime", get_uptime},
     {"address", get_address},
     {"pushSignal", push_signal},
     {"pullSignal", pull_signal},
+    {"tmpAddress", get_tmp_address},
+    {"beep", computer_beep},
+    {"totalMemory", total_memory},
+    {"freeMemory", total_memory},
     {NULL, NULL}
 };
 

@@ -46,14 +46,14 @@ struct eeprom_data *eeprom_init(void) {
     data->data = NULL;
     
     struct component *eeprom = new_component("eeprom", new_uuid(), data);
-    add_method(eeprom, "get", eeprom_get, METHOD_DIRECT | METHOD_GETTER);
+    add_method(eeprom, "get", eeprom_get);
     // set
     // getLabel
     // setLabel
     // getSize
     // getDataSize
-    add_method(eeprom, "getData", eeprom_get_data, METHOD_DIRECT | METHOD_SETTER);
-    add_method(eeprom, "setData", eeprom_set_data, METHOD_DIRECT | METHOD_SETTER);
+    add_method(eeprom, "getData", eeprom_get_data);
+    add_method(eeprom, "setData", eeprom_set_data);
     // getChecksum
     // makeReadonly
     add_component(eeprom);

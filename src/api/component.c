@@ -10,16 +10,20 @@
 static struct component *first_component = NULL;
 static struct component *last_component = NULL;
 
+static int list_call(lua_State *L) {
+    lua_pushnil(L);
+    lua_copy(L, lua_upvalueindex(2), -1);
+
+    if (!lua_next(L, lua_upvalueindex(1)))
+        return 0;
+
+    lua_copy(L, -2, lua_upvalueindex(2));
+    return 2;
+}
+
 static int component_list(lua_State *L) {
-    if (!lua_isstring(L, 1)) {
-        lua_newtable(L);
-        return 1;
-    }
-
-    const char *filter = lua_tostring(L, 1);
+    const char *filter = lua_isstring(L, 1) ? lua_tostring(L, 1) : "";
     bool is_exact = lua_isboolean(L, 2) ? lua_toboolean(L, 2) : true;
-
-    lua_checkstack(L, 3);
 
     lua_newtable(L);
 
@@ -27,10 +31,19 @@ static int component_list(lua_State *L) {
         if (*filter && (is_exact ? strcmp(component->name, filter) : !strstr(component->name, filter)))
             continue;
 
-        lua_pushstring(L, component->address);
         lua_pushstring(L, component->name);
-        lua_rawset(L, -3);
+        lua_setfield(L, -2, component->address);
     }
+
+    lua_newtable(L);
+
+    lua_pushnil(L);
+    lua_copy(L, -3, -1);
+    lua_pushnil(L);
+    lua_pushcclosure(L, list_call, 2);
+    lua_setfield(L, -2, "__call");
+
+    lua_setmetatable(L, -2);
 
     return 1;
 }
@@ -57,20 +70,11 @@ static int component_methods(lua_State *L) {
 
     for (struct component *component = first_component; component != NULL; component = component->next)
         if (!strcmp(component->address, address)) {
-            lua_checkstack(L, 3);
-
             lua_newtable(L);
 
             for (struct method *method = component->first_method; method != NULL; method = method->next) {
-                lua_pushstring(L, method->name);
-                lua_newtable(L);
-                lua_pushboolean(L, method->flags & METHOD_DIRECT);
-                lua_setfield(L, -2, "direct");
-                lua_pushboolean(L, method->flags & METHOD_GETTER);
-                lua_setfield(L, -2, "getter");
-                lua_pushboolean(L, method->flags & METHOD_SETTER);
-                lua_setfield(L, -2, "setter");
-                lua_rawset(L, -3);
+                lua_pushboolean(L, true);
+                lua_setfield(L, -2, method->name);
             }
 
             return 1;
@@ -101,8 +105,8 @@ static int component_doc(lua_State *L) {
 }
 
 static int proxy_call(lua_State *L) {
-    void *data = (void *) ((uintptr_t) lua_tonumber(L, lua_upvalueindex(1)));
-    struct method *method = (struct method *) ((uintptr_t) lua_tonumber(L, lua_upvalueindex(2)));
+    void *data = (void *) ((uintptr_t) lua_tointeger(L, lua_upvalueindex(1)));
+    struct method *method = (struct method *) ((uintptr_t) lua_tointeger(L, lua_upvalueindex(2)));
     return method->invoke(L, data, 1);
 }
 
@@ -111,8 +115,6 @@ static int component_proxy(lua_State *L) {
 
     for (struct component *component = first_component; component != NULL; component = component->next)
         if (!strcmp(component->address, address)) {
-            lua_checkstack(L, 3);
-
             lua_newtable(L);
 
             lua_pushstring(L, address);
@@ -121,8 +123,8 @@ static int component_proxy(lua_State *L) {
             lua_setfield(L, -2, "type");
 
             for (struct method *method = component->first_method; method != NULL; method = method->next) {
-                lua_pushnumber(L, (uintptr_t) component->data);
-                lua_pushnumber(L, (uintptr_t) method); // only slightly cursed :3
+                lua_pushinteger(L, (uintptr_t) component->data);
+                lua_pushinteger(L, (uintptr_t) method); // only slightly cursed :3
                 lua_pushcclosure(L, proxy_call, 2);
                 lua_setfield(L, -2, method->name);
             }
@@ -179,7 +181,7 @@ struct component *new_component(const char *name, const char *address, void *dat
     return component;
 }
 
-void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L, void *data, int arguments_start), uint8_t flags) {
+void add_method(struct component *component, const char *name, int (*invoke)(lua_State *L, void *data, int arguments_start)) {
     struct method *method = malloc(sizeof(struct method));
     assert(method != NULL);
     assert(component != NULL);
@@ -188,7 +190,6 @@ void add_method(struct component *component, const char *name, int (*invoke)(lua
     method->name = name;
     method->invoke = invoke;
     method->next = NULL;
-    method->flags = flags;
 
     if (component->last_method == NULL)
         component->first_method = component->last_method = method;

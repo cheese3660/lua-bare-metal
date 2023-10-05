@@ -20,6 +20,7 @@
 #include "api/component.h"
 #include "api/computer.h"
 #include "api/unicode.h"
+#include "api/os.h"
 
 extern uint32_t mboot_sig;
 extern struct multiboot_header *mboot_ptr;
@@ -40,8 +41,11 @@ static const luaL_Reg loadedlibs[] = {
     {"computer", luaopen_computer},
     {"component", luaopen_component},
     {"unicode", luaopen_unicode},
+    {"os", luaopen_os},
     {NULL, NULL}
 };
+
+intptr_t memory_size = 0;
 
 static char *message_traceback(lua_State *L) {
     luaL_traceback(L, L, lua_tostring(L, -1), 1);
@@ -70,6 +74,31 @@ static const char *run_string(lua_State *L, const char *name, const char *data, 
     }
 }
 
+static int check_arg(lua_State *L) {
+    int n = luaL_checkinteger(L, 1);
+    const char *have = lua_typename(L, lua_type(L, 2));
+    int top = lua_gettop(L);
+
+    for (int i = 3; i <= top; i++)
+        if (!strcmp(have, luaL_checkstring(L, i)))
+            return 0;
+
+    luaL_where(L, 2);
+    lua_pushfstring(L, "bad argument #%d (", n);
+    for (int i = 3; i <= top; i++) {
+        lua_pushstring(L, luaL_checkstring(L, i));
+        if (i < top) {
+            lua_pushliteral(L, " or ");
+            lua_concat(L, 3);
+        } else
+            lua_concat(L, 2);
+    }
+    lua_pushfstring(L, " expected, got %s)", have);
+    lua_concat(L, 3);
+
+    return lua_error(L);
+}
+
 void kmain(void) {
     printf("signature is %08x, flags are %08x\n", mboot_sig, mboot_ptr->flags);
 
@@ -77,6 +106,9 @@ void kmain(void) {
         printf("don't have memory map info! aborting\n");
         return;
     }
+
+    memory_size = (mboot_ptr->mem_lower + mboot_ptr->mem_upper) * 1024;
+    printf("%d.%02d MiB of memory detected\n", memory_size / 1048576, (memory_size / 10485) % 100);
 
     uint32_t largest_size = 0;
     uint32_t base_addr = 0;
@@ -158,6 +190,8 @@ void kmain(void) {
         lua_pop(L, 1);  /* remove lib */
     }
 
+    lua_register(L, "checkArg", check_arg);
+
     if (mboot_ptr->mods_count != 0) {
         module = mboot_ptr->mods_addr;
 
@@ -166,14 +200,11 @@ void kmain(void) {
         size_t size;
 
         iter = open_tar(module->start, module->end);
-        if (tar_find(iter, "/bios.lua", TAR_NORMAL_FILE, &data, &size))
+        if (tar_find(iter, "/bios.lua", TAR_NORMAL_FILE, &data, &size)) {
             eeprom->contents = data;
-
-        iter = open_tar(module->start, module->end);
-        if (tar_find(iter, "/machine.lua", TAR_NORMAL_FILE, &data, &size))
-            gpu_error_message(gpu, run_string(L, "=machine.lua", data, size));
-        else
-            gpu_error_message(gpu, "couldn't find machine.lua");
+            gpu_error_message(gpu, run_string(L, "=bios.lua", data, size));
+        } else
+            gpu_error_message(gpu, "couldn't find bios.lua");
     } else
         gpu_error_message(gpu, "missing initrd");
 

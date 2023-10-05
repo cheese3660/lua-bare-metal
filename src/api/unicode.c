@@ -14,24 +14,20 @@ static lua_Integer string_length(const char *s, size_t len) {
     if (!*s)
         return 0;
 
-    lua_Integer n = 0;  /* counter for the number of characters */
-    lua_Integer posi = 0;
-    lua_Integer posj = len - 1;
+    const char *s1;
+    lua_Integer i = 0, n = 0;
 
-    while (posi <= posj) {
-        const char *s1 = utf8_decode(s + posi, NULL, false);
+    for (; i < len; i = s1 - s, n++) {
+        s1 = utf8_decode(s + i, NULL, false);
         if (s1 == NULL)
             return -1;
-
-        posi = s1 - s;
-        n++;
     }
 
     return n;
 }
 
 static int unicode_len(lua_State *L) {
-    size_t len;  /* string length in bytes */
+    size_t len;
     const char *s = luaL_checklstring(L, 1, &len);
 
     int actual_len = string_length(s, len);
