@@ -8,7 +8,7 @@ cp $1 iso/boot/initrd
 cat > iso/boot/grub/grub.cfg << EOF
 menuentry "openos" {
     multiboot /boot/kernel
-    initrd /boot/initrd
+    module /boot/initrd
 }
 EOF
 grub-mkrescue -o kernel.iso iso
