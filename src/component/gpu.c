@@ -101,7 +101,7 @@ static int find_closest_color(struct gpu *gpu, int color) {
 }
 
 static int gpu_set_background(lua_State *L, struct gpu *gpu, int arguments_start) {
-    int color = luaL_checknumber(L, arguments_start);
+    int color = luaL_checkinteger(L, arguments_start);
     bool is_palette_index = lua_isboolean(L, arguments_start + 1) ? lua_toboolean(L, arguments_start + 1) : false;
 
     if (gpu->palette_size == 0) {
@@ -123,7 +123,7 @@ static int gpu_set_background(lua_State *L, struct gpu *gpu, int arguments_start
 }
 
 static int gpu_set_foreground(lua_State *L, struct gpu *gpu, int arguments_start) {
-    int color = luaL_checknumber(L, arguments_start);
+    int color = luaL_checkinteger(L, arguments_start);
     bool is_palette_index = lua_isboolean(L, arguments_start + 1) ? lua_toboolean(L, arguments_start + 1) : false;
 
     if (gpu->palette_size == 0) {
@@ -148,7 +148,7 @@ static int gpu_get_palette_color(lua_State *L, struct gpu *gpu, int arguments_st
     if (gpu->palette_size == 0)
         return luaL_error(L, "no palette exists for this GPU");
 
-    int color = luaL_checknumber(L, 3);
+    int color = luaL_checkinteger(L, 3);
 
     if (color >= gpu->palette_size)
         return luaL_error(L, "palette index is outside bounds of palette");
@@ -169,8 +169,8 @@ static int gpu_get_resolution(lua_State *L, struct gpu *gpu, int arguments_start
 }
 
 static int gpu_get(lua_State *L, struct gpu *gpu, int arguments_start) {
-    int x = luaL_checknumber(L, arguments_start) - 1;
-    int y = luaL_checknumber(L, arguments_start + 2) - 1;
+    int x = luaL_checkinteger(L, arguments_start) - 1;
+    int y = luaL_checkinteger(L, arguments_start + 1) - 1;
 
     if (x < 0 || y < 0 || x >= gpu->width || y >= gpu->height)
         return luaL_error(L, "position out of bounds");
@@ -179,7 +179,7 @@ static int gpu_get(lua_State *L, struct gpu *gpu, int arguments_start) {
 
     lua_checkstack(L, 5);
 
-    lua_pushfstring(L, "%U", c->character);
+    lua_pushfstring(L, "%U", (long) c->character);
 
     if (gpu->palette_size > 0) {
         lua_pushnumber(L, gpu->palette[c->foreground]);
@@ -236,8 +236,8 @@ static const char *utf8_decode (const char *s, uint32_t *val, int strict) {
 }
 
 static int gpu_set(lua_State *L, struct gpu *gpu, int arguments_start) {
-    int x = luaL_checknumber(L, arguments_start) - 1;
-    int y = luaL_checknumber(L, arguments_start + 1) - 1;
+    int x = luaL_checkinteger(L, arguments_start) - 1;
+    int y = luaL_checkinteger(L, arguments_start + 1) - 1;
     const char *string = luaL_checkstring(L, arguments_start + 2);
     bool vertical = lua_isboolean(L, arguments_start + 3) ? lua_toboolean(L, arguments_start + 3) : false;
     uint32_t c;
@@ -275,12 +275,12 @@ static int gpu_set(lua_State *L, struct gpu *gpu, int arguments_start) {
 }
 
 static int gpu_copy(lua_State *L, struct gpu *gpu, int arguments_start) {
-    int x = luaL_checknumber(L, arguments_start) - 1;
-    int y = luaL_checknumber(L, arguments_start + 1) - 1;
-    int width = luaL_checknumber(L, arguments_start + 2);
-    int height = luaL_checknumber(L, arguments_start + 3);
-    int target_x = x + luaL_checknumber(L, arguments_start + 4);
-    int target_y = y + luaL_checknumber(L, arguments_start + 5);
+    int x = luaL_checkinteger(L, arguments_start) - 1;
+    int y = luaL_checkinteger(L, arguments_start + 1) - 1;
+    int width = luaL_checkinteger(L, arguments_start + 2);
+    int height = luaL_checkinteger(L, arguments_start + 3);
+    int target_x = x + luaL_checkinteger(L, arguments_start + 4);
+    int target_y = y + luaL_checkinteger(L, arguments_start + 5);
 
     /* all of this is undefined behavior so if it doesn't work properly that's the documentation's fault, not mine :3 */
     if (width <= 0 || height <= 0 || x >= gpu->width || y >= gpu->height || target_x >= gpu->width || target_y >= gpu->height || (target_x == x && target_y == y)) {
@@ -374,10 +374,10 @@ static int fill(struct gpu *gpu, int x0, int y0, int x1, int y1, uint32_t c) {
 }
 
 static int gpu_fill(lua_State *L, struct gpu *gpu, int arguments_start) {
-    int x = luaL_checknumber(L, arguments_start);
-    int y = luaL_checknumber(L, arguments_start + 1);
-    int width = luaL_checknumber(L, arguments_start + 2);
-    int height = luaL_checknumber(L, arguments_start + 3);
+    int x = luaL_checkinteger(L, arguments_start);
+    int y = luaL_checkinteger(L, arguments_start + 1);
+    int width = luaL_checkinteger(L, arguments_start + 2);
+    int height = luaL_checkinteger(L, arguments_start + 3);
     const char *string = luaL_checkstring(L, arguments_start + 4);
     uint32_t c;
 

@@ -81,9 +81,9 @@ static struct open_file *find_open_file(struct initrd_data *data, int handle) {
 }
 
 static int initrd_seek(lua_State *L, struct initrd_data *data, int arguments_start) {
-    int handle = luaL_checknumber(L, arguments_start);
+    int handle = luaL_checkinteger(L, arguments_start);
     const char *whence = luaL_checkstring(L, arguments_start + 1);
-    int offset = luaL_checknumber(L, arguments_start + 2);
+    int offset = luaL_checkinteger(L, arguments_start + 2);
 
     struct open_file *open_file = find_open_file(data, handle);
 
@@ -147,7 +147,7 @@ static int initrd_size(lua_State *L, struct initrd_data *data, int arguments_sta
 }
 
 static int initrd_close(lua_State *L, struct initrd_data *data, int arguments_start) {
-    int handle = luaL_checknumber(L, arguments_start);
+    int handle = luaL_checkinteger(L, arguments_start);
 
     struct open_file *open_file = data->open_files, *last = NULL;
 
@@ -167,10 +167,10 @@ static int initrd_close(lua_State *L, struct initrd_data *data, int arguments_st
 }
 
 static int initrd_read(lua_State *L, struct initrd_data *data, int arguments_start) {
-    int handle = luaL_checknumber(L, arguments_start);
+    int handle = luaL_checkinteger(L, arguments_start);
 
     // lua is on crack
-    uint64_t count2 = luaL_checknumber(L, arguments_start);
+    uint64_t count2 = luaL_checkinteger(L, arguments_start);
     size_t count = count2 >= UINTPTR_MAX ? UINTPTR_MAX : count;
 
     struct open_file *open_file = find_open_file(data, handle);
@@ -202,13 +202,31 @@ static int initrd_read(lua_State *L, struct initrd_data *data, int arguments_sta
 }
 
 static int initrd_is_directory(lua_State *L, struct initrd_data *data, int arguments_start) {
-    const char *path = luaL_checkstring(L, arguments_start);
+    size_t len;
+    const char *path = luaL_checklstring(L, arguments_start, &len);
 
     struct tar_iterator *iter = open_tar(data->start, data->end);
     const char *file_data;
     size_t file_size;
-    if (!tar_find(iter, path, 0, &file_data, &file_size))
-        return luaL_error(L, "file not found");
+    if (!tar_find(iter, path, 0, &file_data, &file_size)) {
+        if (path[len - 1] == '/')
+            return luaL_error(L, "file not found");
+
+        const char *old_path = path;
+        path = malloc(++len);
+        assert(path != NULL);
+        sprintf(path, "%s/", old_path);
+
+        iter = open_tar(data->start, data->end);
+        if (!tar_find(iter, path, TAR_DIRECTORY, &file_data, &file_size)) {
+            free(path);
+            return luaL_error(L, "file not found");
+        }
+
+        free(path);
+        lua_pushboolean(L, true);
+        return 1;
+    }
 
     struct tar_header *header = file_data - 512; // hehe
 
@@ -238,18 +256,21 @@ static int initrd_last_modified(lua_State *L, struct initrd_data *data, int argu
 
 static int initrd_list(lua_State *L, struct initrd_data *data, int arguments_start) {
     const char name[256];
-    const char *path = luaL_checkstring(L, arguments_start);
+    size_t len;
+    const char *path = luaL_checklstring(L, arguments_start, &len);
 
-    if (*path == '/')
+    if (*path == '/') {
         path++;
+        len--;
+    }
 
-    size_t len = strlen(path);
-
+    bool should_free = false;
     if (path[len - 1] != '/') {
         const char *old_path = path;
         path = malloc(++len);
         assert(path != NULL);
         sprintf(path, "%s/", old_path);
+        should_free = true;
     }
 
     lua_newtable(L);
@@ -258,8 +279,11 @@ static int initrd_list(lua_State *L, struct initrd_data *data, int arguments_sta
     const char *file_data;
     size_t file_size;
 
-    if (!tar_find(iter, path, TAR_DIRECTORY, &file_data, &file_size))
+    if (!tar_find(iter, path, TAR_DIRECTORY, &file_data, &file_size)) {
+        if (should_free)
+            free(path);
         return luaL_error(L, "directory not found");
+    }
 
     for (int i = 1;; i++) {
         struct tar_header *header;
@@ -289,6 +313,9 @@ static int initrd_list(lua_State *L, struct initrd_data *data, int arguments_sta
         lua_pushstring(L, name_ptr);
         lua_rawset(L, -3);
     }
+
+    if (should_free)
+        free(path);
 
     return 1;
 }
