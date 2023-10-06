@@ -3,7 +3,7 @@ MULTIBOOT_MEMORY_INFO =  (1<<1)
 MULTIBOOT_REQVIDMODE  =  (1<<2)
 
 MULTIBOOT_HEADER_MAGIC = 0x1badb002
-MULTIBOOT_HEADER_FLAGS = (MULTIBOOT_MEMORY_INFO)
+MULTIBOOT_HEADER_FLAGS = (MULTIBOOT_MEMORY_INFO | MULTIBOOT_REQVIDMODE)
 MULTIBOOT_CHECKSUM     = -(MULTIBOOT_HEADER_MAGIC + MULTIBOOT_HEADER_FLAGS)
 
 .section .multiboot, "a"
@@ -18,8 +18,8 @@ header:
     .long 0, 0, 0, 0    /* load_addr, load_end_addr, bss_end_addr, entry_addr */
     /* Video mode */
     .long 0     /* Mode type (0: LFB) */
-    .long 0     /* Width (no preference) */
-    .long 0     /* Height (no preference) */
+    .long 1280  /* Width (no preference) */
+    .long 800   /* Height (no preference) */
     .long 32    /* Depth (32-bit preferred) */
 
 .section .inittext, "ax"
