@@ -113,7 +113,7 @@ static void set(int x, int y, uint32_t c, int foreground, int background) {
     for (size_t row = 0; row < 16; row++) {
         uint8_t rowPixels = character->pixels[row];
         for (size_t column = 0; column < 8; column++) {
-            size_t reverse_column = 8 - column;
+            size_t reverse_column = 7 - column;
             bool isSet = (rowPixels & 1) == 1;
             if (isSet) {
                 setPixel(px+reverse_column,py+row,foreground);
