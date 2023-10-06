@@ -13,5 +13,5 @@ menuentry "openos" {
 EOF
 grub-mkrescue -o kernel.iso iso
 echo "(ctrl+c to exit)"
-
-qemu-system-i386 -cpu 486 -device isa-debug-exit -cdrom kernel.iso -serial stdio -audiodev pa,id=snd0 -machine pcspk-audiodev=snd0
+shift
+qemu-system-i386 -cpu 486 -device isa-debug-exit -cdrom kernel.iso -serial stdio -audiodev pa,id=snd0 -machine pcspk-audiodev=snd0 $@
