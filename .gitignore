@@ -44,3 +44,7 @@
 
 # Binary
 kernel
+
+# ISO
+iso/
+kernel.iso

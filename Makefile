@@ -11,7 +11,7 @@ LUA_OBJS = lua/lapi.o lua/lcode.o lua/lctype.o lua/ldebug.o lua/ldo.o lua/ldump.
 
 OBJECTS = src/init.o src/main.o src/stubs.o src/interrupts.o src/isr.o src/rtc.o src/uuid.o src/tar.o src/ps2.o \
 	src/api/computer.o src/api/component.o src/api/unicode.o src/api/os.o \
-	src/component/vgatext.o src/component/gpu.o src/component/initrd.o src/component/eeprom.o \
+	src/component/vgatext.o src/component/gpu.o src/component/initrd.o src/component/eeprom.o src/component/vgagraphics.o \
 	$(LUA_OBJS) arith64/arith64.o
 BINARY = kernel
 
