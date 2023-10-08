@@ -13,6 +13,7 @@
 #include "rtc.h"
 #include "tar.h"
 #include "uuid.h"
+#include "ps2.h"
 #include "component/vgatext.h"
 #include "component/vgagraphics.h"
 #include "component/gpu.h"
@@ -207,6 +208,8 @@ void kmain(void) {
 
     if (mboot_ptr->mods_count != 0)
         initrd_init(mboot_ptr->mods_addr->string, mboot_ptr->mods_addr->start, mboot_ptr->mods_addr->end);
+
+    ps2_init();
 
     printf("starting Lua\n");
     lua_State *L = luaL_newstate();

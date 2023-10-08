@@ -26,19 +26,6 @@ static int get_address(lua_State *L) {
     return 1;
 }
 
-#define SIG_LUA 0
-
-struct signal {
-    const char *name;
-    uint8_t kind;
-    union {
-        struct {
-            const char *name;
-            size_t size;
-        } registry;
-    } data;
-};
-
 #define MAX_SIGNALS 128
 
 static volatile struct signal signal_buffer[MAX_SIGNALS];
@@ -46,13 +33,15 @@ static volatile int in_buffer = 0;
 static volatile int buffer_pos = 0;
 
 // adds a signal to the queue
-static bool queue_signal(struct signal *signal) {
+bool queue_signal(struct signal *signal) {
     assert(signal != NULL);
 
-    if (in_buffer >= MAX_SIGNALS)
-        return false;
-
     __asm__ __volatile__ ("cli");
+
+    if (in_buffer >= MAX_SIGNALS) {
+        __asm__ __volatile__ ("sti");
+        return false;
+    }
 
     memcpy(&signal_buffer[(buffer_pos + in_buffer) % MAX_SIGNALS], signal, sizeof(struct signal));
     in_buffer ++;
@@ -81,14 +70,17 @@ static bool dequeue_signal(struct signal *signal) {
 
 // frees memory allocated for a signal
 static void free_signal(struct lua_State *L, struct signal *signal) {
-    free(signal->name);
-    if (signal->kind == SIG_LUA && signal->data.registry.name != NULL) {
-        // delete arguments from registry
-        lua_pushstring(L, signal->data.registry.name);
-        lua_pushnil(L);
-        lua_settable(L, LUA_REGISTRYINDEX);
+    if (signal->kind == SIG_LUA) {
+        free(signal->name);
 
-        free(signal->data.registry.name);
+        if (signal->data.registry.name != NULL) {
+            // delete arguments from registry
+            lua_pushstring(L, signal->data.registry.name);
+            lua_pushnil(L);
+            lua_settable(L, LUA_REGISTRYINDEX);
+
+            free(signal->data.registry.name);
+        }
     }
 }
 
@@ -151,20 +143,31 @@ static int pull_signal(lua_State *L) {
 
     lua_pushstring(L, signal.name);
 
-    if (signal.kind == SIG_LUA && (arguments = signal.data.registry.size) > 0) {
-        // get the arguments from the registry
-        lua_pushstring(L, signal.data.registry.name);
-        lua_gettable(L, LUA_REGISTRYINDEX);
-        int table_index = lua_gettop(L);
+    switch (signal.kind) {
+        case SIG_LUA:
+            if ((arguments = signal.data.registry.size) > 0) {
+                // get the arguments from the registry
+                lua_pushstring(L, signal.data.registry.name);
+                lua_gettable(L, LUA_REGISTRYINDEX);
+                int table_index = lua_gettop(L);
 
-        // extract all the arguments from the table
-        for (int i = 0; i < arguments; i ++) {
-            lua_pushinteger(L, i);
-            lua_rawget(L, table_index);
-        }
+                // extract all the arguments from the table
+                for (int i = 0; i < arguments; i ++) {
+                    lua_pushinteger(L, i);
+                    lua_rawget(L, table_index);
+                }
 
-        // remove the table from the stack since it's not needed
-        lua_remove(L, table_index);
+                // remove the table from the stack since it's not needed
+                lua_remove(L, table_index);
+            }
+            break;
+        case SIG_KEYBOARD:
+            arguments = 4;
+            lua_pushstring(L, signal.data.keyboard.address);
+            lua_pushinteger(L, signal.data.keyboard.character);
+            lua_pushinteger(L, signal.data.keyboard.code);
+            lua_pushliteral(L, "");
+            break;
     }
 
     free_signal(L, &signal);
@@ -249,6 +252,10 @@ static const luaL_Reg funcs[] = {
 
 int luaopen_computer(lua_State *L) {
     address = new_uuid();
+    struct component *computer = new_component("computer", address, NULL);
+    add_component(computer);
+
     luaL_newlib(L, funcs);
+
     return 1;
 }

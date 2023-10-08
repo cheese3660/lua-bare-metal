@@ -34,8 +34,17 @@ static int screen_get_aspect_ratio(lua_State *L, void *data, int arguments_start
     return 2;
 }
 
+extern const char *keyboard_address;
+
 static int screen_get_keyboards(lua_State *L, void *data, int arguments_start) {
     lua_newtable(L);
+
+    if (keyboard_address != NULL) {
+        lua_pushinteger(L, 1);
+        lua_pushstring(L, keyboard_address);
+        lua_rawset(L, -3);
+    }
+
     return 1;
 }
 
