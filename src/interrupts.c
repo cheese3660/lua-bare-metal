@@ -5,6 +5,7 @@
 #include "interrupts.h"
 #include "io.h"
 #include "rtc.h"
+#include "ps2.h"
 
 /* http://www.jamesmolloy.co.uk/tutorial_html/4.-The%20GDT%20and%20IDT.html */
 struct idt_entry {
@@ -229,8 +230,9 @@ void isr_handler(struct int_registers registers) {
         case 3:
             printf("caught breakpoint interrupt!\n");
             break;
-        case 32:
         case 33:
+            ps2_interrupt();
+        case 32:
         case 34:
         case 35:
         case 36:
